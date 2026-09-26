@@ -1,0 +1,188 @@
+{
+  "results": {
+    "baseline_overall_rate": {
+      "auc": 0.5,
+      "logloss": 0.6113,
+      "brier": 0.2093
+    },
+    "baseline_carrier_rate": {
+      "auc": 0.5559,
+      "logloss": 0.6084,
+      "brier": 0.2081
+    },
+    "baseline_flight_rate": {
+      "auc": 0.6184,
+      "logloss": 0.5942,
+      "brier": 0.2028
+    },
+    "all_features": {
+      "auc": 0.7296,
+      "logloss": 0.5444,
+      "brier": 0.1823
+    },
+    "selected_features": {
+      "auc": 0.7313,
+      "logloss": 0.5437,
+      "brier": 0.1819
+    },
+    "selected_no_weather": {
+      "auc": 0.6914,
+      "logloss": 0.573,
+      "brier": 0.1941
+    },
+    "calibration": [
+      {
+        "pred": 0.0714,
+        "actual": 0.0943,
+        "n": 247057
+      },
+      {
+        "pred": 0.1468,
+        "actual": 0.2,
+        "n": 428737
+      },
+      {
+        "pred": 0.2455,
+        "actual": 0.3341,
+        "n": 257967
+      },
+      {
+        "pred": 0.3452,
+        "actual": 0.4524,
+        "n": 147325
+      },
+      {
+        "pred": 0.445,
+        "actual": 0.5528,
+        "n": 81550
+      },
+      {
+        "pred": 0.5446,
+        "actual": 0.634,
+        "n": 43512
+      },
+      {
+        "pred": 0.6433,
+        "actual": 0.6974,
+        "n": 20988
+      },
+      {
+        "pred": 0.7433,
+        "actual": 0.7672,
+        "n": 9041
+      },
+      {
+        "pred": 0.8368,
+        "actual": 0.8089,
+        "n": 3250
+      },
+      {
+        "pred": 0.9123,
+        "actual": 0.8083,
+        "n": 120
+      }
+    ]
+  },
+  "features": [
+    "month",
+    "dow",
+    "dep_hour",
+    "arr_hour",
+    "distance",
+    "crs_elapsed",
+    "leg_index",
+    "turnaround",
+    "aircraft_age",
+    "seats",
+    "regional",
+    "days_to_holiday",
+    "origin_hour_volume",
+    "dest_hour_volume",
+    "carrier_rate",
+    "origin_rate",
+    "dest_rate",
+    "route_rate",
+    "carrier_origin_rate",
+    "origin_hour_rate",
+    "flight_rate",
+    "carrier_dest_rate",
+    "aircraft_rate",
+    "inbound_rate",
+    "o_temperature_2m",
+    "o_precipitation",
+    "o_wind_speed_10m",
+    "o_wind_gusts_10m",
+    "o_cloud_cover",
+    "o_cloud_cover_low",
+    "o_weather_code",
+    "o_precipitation_day",
+    "o_snowfall_day",
+    "d_temperature_2m",
+    "d_precipitation",
+    "d_wind_speed_10m",
+    "d_wind_gusts_10m",
+    "d_cloud_cover",
+    "d_cloud_cover_low",
+    "d_weather_code",
+    "d_precipitation_day"
+  ],
+  "dropped": [
+    "o_snowfall",
+    "d_snowfall",
+    "d_snowfall_day"
+  ],
+  "best_iter": 856,
+  "prior": 0.24004501510393877,
+  "shap_importance": {
+    "flight_rate": 0.2447,
+    "origin_hour_rate": 0.17717,
+    "o_precipitation_day": 0.12532,
+    "d_precipitation_day": 0.12507,
+    "dow": 0.11927,
+    "dep_hour": 0.11502,
+    "days_to_holiday": 0.10955,
+    "arr_hour": 0.07982,
+    "month": 0.07783,
+    "origin_rate": 0.07618,
+    "turnaround": 0.0631,
+    "dest_hour_volume": 0.06199,
+    "carrier_dest_rate": 0.05329,
+    "distance": 0.05169,
+    "route_rate": 0.05115,
+    "crs_elapsed": 0.05064,
+    "origin_hour_volume": 0.04805,
+    "carrier_origin_rate": 0.04581,
+    "o_wind_gusts_10m": 0.03641,
+    "carrier_rate": 0.03524,
+    "d_temperature_2m": 0.03511,
+    "leg_index": 0.03087,
+    "o_temperature_2m": 0.0306,
+    "d_wind_gusts_10m": 0.02905,
+    "aircraft_rate": 0.02391,
+    "d_cloud_cover_low": 0.02382,
+    "dest_rate": 0.0236,
+    "d_cloud_cover": 0.02317,
+    "o_precipitation": 0.02225,
+    "o_cloud_cover": 0.02154,
+    "o_cloud_cover_low": 0.02154,
+    "o_weather_code": 0.02022,
+    "seats": 0.0181,
+    "d_precipitation": 0.01701,
+    "d_weather_code": 0.01676,
+    "o_wind_speed_10m": 0.01625,
+    "aircraft_age": 0.01164,
+    "inbound_rate": 0.01162,
+    "o_snowfall_day": 0.01124,
+    "d_wind_speed_10m": 0.01074,
+    "regional": 0.00556
+  },
+  "train_period": [
+    "2025-08-01",
+    "2026-07-31"
+  ],
+  "n_flights": 7043858,
+  "validation_period": [
+    "2026-06-01",
+    "2026-07-31"
+  ]
+}

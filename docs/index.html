@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Will My Flight Be Delayed?</title>
+<meta name="description" content="The chance a US domestic flight arrives 15+ minutes late, from a model trained on a year of flights plus live weather forecasts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<button class="btn theme-btn" id="theme" type="button">Light</button>
+<main>
+  <div class="eyebrow"><a href="https://kennedyjohnson.github.io/">Kennedy Johnson</a> · US domestic flights</div>
+  <h1>Will my flight be delayed?</h1>
+  <p class="lede">Enter your flight number and travel date to see the chance it arrives 15 or more minutes late, based on a year of flight records and the weather forecast at both airports.</p>
+
+  <form class="search" id="search" autocomplete="off">
+    <input id="flight" placeholder="Flight number, e.g. DL 1234" aria-label="Flight number" required>
+    <input id="date" type="date" aria-label="Travel date" required>
+    <button class="btn primary" type="submit">Check</button>
+  </form>
+  <div class="examples" id="examples"></div>
+  <p class="error" id="error" hidden></p>
+
+  <div id="result" hidden>
+    <div class="legs" id="legs"></div>
+
+    <div class="card">
+      <div class="route">
+        <div><div class="code" id="o-code"></div><div class="city" id="o-city"></div></div>
+        <div class="mid"><b id="flightno"></b><div class="path"></div><span id="carrier"></span></div>
+        <div class="right"><div class="code" id="d-code"></div><div class="city" id="d-city"></div></div>
+      </div>
+      <div id="map"></div>
+    </div>
+
+    <div class="card">
+      <h3>Chance of arriving 15+ minutes late</h3>
+      <div class="big-pct" id="pct">–</div>
+      <div class="meter"><i id="meter-fill"></i><span class="avg" id="meter-avg" title="US average"></span></div>
+      <div class="meter-scale"><span>0%</span><span id="avg-label"></span><span>100%</span></div>
+      <p class="verdict" id="verdict"></p>
+      <p class="small muted" id="verdict-note"></p>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="card">
+      <h3>What's driving this estimate</h3>
+      <p class="small muted">How much each factor pushed this flight's odds up or down compared with a typical flight.</p>
+      <div class="drivers" id="drivers"></div>
+      <div class="legend"><span>← lowers the chance</span><span>raises the chance →</span></div>
+    </div>
+
+    <div class="card">
+      <h3>Weather at departure and arrival</h3>
+      <p class="small muted">Hourly forecast from Open-Meteo for the scheduled times, available up to 16 days ahead.</p>
+      <div class="weather" id="weather"></div>
+    </div>
+  </div>
+
+  <section id="about">
+    <h2>How it works</h2>
+    <details class="card">
+      <summary><b>How we did this, and how accurate it is</b></summary>
+      <ul class="list">
+        <li>We used every domestic flight reported to the U.S. Bureau of Transportation Statistics over the past year. A flight counts as <b>delayed</b> if it arrived 15+ minutes late, was cancelled, or was diverted.</li>
+        <li>The model is a gradient-boosted tree ensemble (LightGBM). It looks at how often the airline, both airports, the route and this exact flight number have run late, plus time of day, day of week, month, how busy each airport is at that hour, and how close the date is to a major holiday.</li>
+        <li><b>The plane itself matters.</b> Late-arriving aircraft are the single biggest cause of delays in federal data, so the model looks at how late in the plane's day the flight usually runs, where the plane usually flies in from, and how much time is scheduled to turn it around. It also uses the aircraft type, age and size from the FAA aircraft registry, and whether a regional airline operates the flight for a major brand.</li>
+        <li>It also looks at hourly weather at both ends: temperature, rain, snow, wind, gusts and cloud cover. Historical weather came from Open-Meteo's archive; your flight uses the live forecast.</li>
+        <li>We used SHAP values to rank every feature by how much it moves predictions, and removed features that added nothing.</li>
+      </ul>
+      <p class="small muted">Tested on the most recent two months of flights, which the model never saw during training:</p>
+      <div class="tablewrap"><table id="metrics"></table></div>
+      <p class="small muted" id="data-note"></p>
+      <img src="img/shap_bar.png" alt="Features ranked by average impact on predictions (mean absolute SHAP value)" class="shap">
+      <p class="small muted">Features ranked by average impact on predictions (mean |SHAP value|).</p>
+    </details>
+  </section>
+
+  <footer>
+    <p><b>This is an estimate, not a guarantee.</b> It can't see air traffic control programs, crew issues or mechanical problems on the day. Check with your airline for real-time status. Not affiliated with any airline or the U.S. Department of Transportation.</p>
+    <p><b>Data.</b> <a href="https://www.transtats.bts.gov/Tables.asp?QO_VQ=EFD">BTS Reporting Carrier On-Time Performance</a>. Weather: <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0). Airports: <a href="https://ourairports.com/data/">OurAirports</a> (public domain). Aircraft: <a href="https://www.faa.gov/licenses_certificates/aircraft_certification/aircraft_registry/releasable_aircraft_download">FAA Releasable Aircraft Database</a>. Map: <a href="https://www.esri.com/">Esri</a>, <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.</p>
+    <p><b>Methods.</b> <a href="https://lightgbm.readthedocs.io/">LightGBM</a> (Ke et al., 2017); <a href="https://github.com/shap/shap">SHAP</a> (Lundberg &amp; Lee, 2017). Built with <a href="https://pandas.pydata.org/">pandas</a> and <a href="https://leafletjs.com/">Leaflet</a>. Code: <a href="https://github.com/KennedyJohnson/will-my-flight-be-delayed">GitHub</a>.</p>
+  </footer>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
