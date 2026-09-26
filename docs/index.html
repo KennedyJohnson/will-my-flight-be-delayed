@@ -17,12 +17,25 @@
   <h1>Will my flight be delayed?</h1>
   <p class="lede">Enter your flight number and travel date to see the chance it arrives 15 or more minutes late, based on a year of flight records and the weather forecast at both airports.</p>
 
+  <div class="modes" role="tablist">
+    <button type="button" class="btn active" id="mode-num" role="tab">Flight number</button>
+    <button type="button" class="btn" id="mode-route" role="tab">Airline &amp; route</button>
+  </div>
   <form class="search" id="search" autocomplete="off">
     <input id="flight" placeholder="Flight number, e.g. DL 1234" aria-label="Flight number" required>
     <input id="date" type="date" aria-label="Travel date" required>
     <button class="btn primary" type="submit">Check</button>
   </form>
+  <form class="search" id="route-search" autocomplete="off" hidden>
+    <select id="airline" aria-label="Airline"></select>
+    <input id="from" list="airport-list" placeholder="From: city or code" aria-label="Departure airport" required>
+    <input id="to" list="airport-list" placeholder="To: city or code" aria-label="Arrival airport" required>
+    <input id="route-date" type="date" aria-label="Travel date" required>
+    <button class="btn primary" type="submit">Find flights</button>
+  </form>
+  <datalist id="airport-list"></datalist>
   <div class="examples" id="examples"></div>
+  <div class="matches" id="matches" hidden></div>
   <p class="error" id="error" hidden></p>
 
   <div id="result" hidden>

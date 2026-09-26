@@ -71,10 +71,25 @@ async function init() {
   setTheme(saved ?? "dark");
   $("theme").onclick = () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
   $("search").onsubmit = (e) => { e.preventDefault(); run(); };
+  $("route-search").onsubmit = (e) => { e.preventDefault(); runRoute(); };
+  $("route-date").value = $("date").value;
+  const setMode = (route) => {
+    $("mode-num").classList.toggle("active", !route);
+    $("mode-route").classList.toggle("active", route);
+    $("search").hidden = route; $("route-search").hidden = !route; $("examples").hidden = route;
+    $("matches").hidden = true; $("error").hidden = true;
+  };
+  $("mode-num").onclick = () => setMode(false);
+  $("mode-route").onclick = () => setMode(true);
 
   [stats, airports, carriers, metrics] = await Promise.all(
     ["data/stats.json", "data/airports.json", "data/carriers.json", "data/metrics.json"].map(getJSON));
   renderAbout();
+  const brands = Object.keys(PARTNERS).filter((c) => carriers[c] || PARTNERS[c].some((p) => carriers[p]));
+  $("airline").innerHTML = `<option value="">Any airline</option>` + brands.concat(Object.keys(carriers).filter((c) => !brands.includes(c) && !Object.values(PARTNERS).flat().includes(c)))
+    .map((c) => `<option value="${c}">${carriers[c]?.name ?? c}</option>`).join("");
+  $("airport-list").innerHTML = Object.entries(airports).sort((a, b) => b[1].flights - a[1].flights)
+    .map(([code, a]) => `<option value="${code} · ${a.city ?? ""}${a.region ? ", " + a.region : ""}"></option>`).join("");
   getJSON("data/model.json").then((m) => (model = new DelayModel(m)));
 
   const q = new URLSearchParams(location.search);
@@ -137,6 +152,66 @@ async function run() {
   } finally {
     btn.disabled = false; btn.textContent = "Check";
   }
+}
+
+// Resolve "MSP", "MSP · Minneapolis, MN" or "Chicago" to a set of airport codes
+function resolveAirports(text) {
+  const t = text.trim().toUpperCase();
+  const code = t.match(/^([A-Z]{3})\b/);
+  if (code && airports[code[1]]) return new Set([code[1]]);
+  const q = t.split("·").pop().split(",")[0].trim();
+  return new Set(Object.entries(airports).filter(([, a]) => (a.city ?? "").toUpperCase() === q || (a.name ?? "").toUpperCase().includes(q))
+    .map(([c]) => c));
+}
+
+const OPERATED_BY = Object.fromEntries(Object.entries(PARTNERS).flatMap(([b, ps]) => ps.map((p) => [p, b])));
+
+async function runRoute() {
+  $("error").hidden = true;
+  $("result").hidden = true;
+  const from = resolveAirports($("from").value), to = resolveAirports($("to").value);
+  if (!from.size) return showError(`Couldn't find an airport matching “${$("from").value}”.`);
+  if (!to.size) return showError(`Couldn't find an airport matching “${$("to").value}”.`);
+  const brand = $("airline").value;
+  const date = $("route-date").value;
+  $("date").value = date;
+  const dow = (parseDate(date).getDay() + 6) % 7;
+  const codes = brand ? [brand, ...(PARTNERS[brand] ?? [])] : Object.keys(carriers);
+  const found = [];
+  await Promise.all(codes.map(async (c) => {
+    const table = await getJSON(`data/flights/${c}.json`);
+    for (const [num, legs] of Object.entries(table ?? {})) {
+      for (const leg of legs) {
+        if (from.has(leg.o) && to.has(leg.d) && leg.dows & (1 << dow)) {
+          const mk = brand || OPERATED_BY[c] || c;
+          found.push({ parsed: { carrier: mk, num }, operator: c, leg, legs });
+        }
+      }
+    }
+  }));
+  found.sort((a, b) => a.leg.dep - b.leg.dep);
+  const box = $("matches");
+  box.hidden = false;
+  if (!found.length) {
+    box.innerHTML = "";
+    return showError(`No ${brand ? carriers[brand]?.name + " " : ""}nonstop flights found on that route on ${DAYS[dow]}s in recent schedules.`);
+  }
+  box.innerHTML = `<p class="small muted">${found.length} nonstop flight${found.length > 1 ? "s" : ""} on ${DAYS[dow]}s. Pick one:</p>` +
+    found.map((f, i) => `<button type="button" class="match" data-i="${i}">
+      <span class="fn">${f.parsed.carrier} ${f.parsed.num}</span>
+      <span class="meta">${f.leg.o} ${fmtTime(f.leg.dep)} → ${f.leg.d} ${fmtTime(f.leg.arr)} · ${fmtDur(f.leg.el)}${f.leg.ac && !["Unknown", "Other"].includes(f.leg.ac) ? " · " + f.leg.ac : ""}${f.operator !== f.parsed.carrier ? " · " + (carriers[f.operator]?.name ?? f.operator) : ""}</span>
+      <span class="pr">${pct(1 - f.leg.hr)} on time</span></button>`).join("");
+  box.onclick = async (e) => {
+    const b = e.target.closest(".match");
+    if (!b) return;
+    box.querySelectorAll(".match").forEach((m) => m.classList.remove("active"));
+    b.classList.add("active");
+    const f = found[+b.dataset.i];
+    $("legs").innerHTML = "";
+    $("flight").value = `${f.parsed.carrier} ${f.parsed.num}`;
+    history.replaceState(null, "", `?flight=${f.parsed.carrier}${f.parsed.num}&date=${date}`);
+    await showLeg(f.parsed, f.operator, f.leg, date, false);
+  };
 }
 
 function showError(msg) { $("error").textContent = msg; $("error").hidden = false; }
@@ -256,6 +331,10 @@ function renderVerdict(p, notOnDate, date, hasWx) {
   const notes = [];
   if (!hasWx) notes.push("No weather forecast is available for this date yet, so this estimate uses flight history only.");
   if (notOnDate) notes.push(`This flight didn't fly on ${DAYS[(parseDate(date).getDay() + 6) % 7]}s in recent schedules, so check your booking.`);
+  if (metrics?.schedule_through) {
+    const through = parseDate(metrics.schedule_through).toLocaleDateString("en", { month: "long", day: "numeric", year: "numeric" });
+    notes.push(`Schedule details are from flights operated through ${through}, the latest government data, so confirm times with your airline.`);
+  }
   $("verdict-note").textContent = notes.join(" ");
   $("verdict-note").hidden = !notes.length;
 }
@@ -269,7 +348,8 @@ function renderStats(leg, operator) {
     ["Distance", `${leg.dist.toLocaleString()} mi`, `${Math.round(leg.dist * 1.609).toLocaleString()} km`],
     ["On-time record", pct(1 - leg.hr), `${leg.hn} flights in the past year`],
     ["Avg delay when late", leg.ad ? `${leg.ad} min` : "–", "arrival delay"],
-    ["Cancellation rate", pct(leg.cx, 1), `${carriers[operator]?.name ?? operator} avg delay ${pct(carriers[operator]?.rate)}`],
+    ["Cancellation rate", pct(leg.cx, 1), "this flight, past year"],
+    ["Airline delay rate", pct(carriers[operator]?.rate), `${carriers[operator]?.name ?? operator}, all flights`],
     ["Aircraft", leg.ac && leg.ac !== "Unknown" && leg.ac !== "Other" ? leg.ac : "Varies",
       leg.age != null ? `usual type, about ${Math.round(leg.age)} years old` : "usual type on this flight"],
     ["Plane arrives from", leg.inb === "Overnight" ? "Overnight" : leg.inb ?? "–",

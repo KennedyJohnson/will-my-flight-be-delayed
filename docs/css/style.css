@@ -107,3 +107,17 @@ footer { margin-top: 64px; border-top: 1px solid var(--border); padding-top: 16p
 .leaflet-container { font: 13px Inter, sans-serif; }
 .ap-label { background: var(--card); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; font-weight: 600; padding: 1px 7px; box-shadow: none; }
 .ap-label::before { display: none; }
+
+.modes { display: flex; gap: 6px; margin-top: 24px; }
+.modes .btn { border-radius: 20px; font-size: 13px; padding: 6px 14px; }
+.modes + .search { margin-top: 12px; }
+.search[hidden], .examples[hidden] { display: none; }
+.search select { font: inherit; font-size: 17px; padding: 14px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); color: var(--ink); flex: 1 1 180px; }
+#from, #to { flex: 1 1 160px; }
+.matches { margin-top: 16px; }
+.match { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; width: 100%; text-align: left; font: inherit; padding: 12px 14px; margin-top: 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--ink); cursor: pointer; font-variant-numeric: tabular-nums; }
+.match:hover, .match.active { border-color: var(--accent); background: var(--accent-soft); }
+.match .fn { font-weight: 600; }
+.match .meta { color: var(--ink2); font-size: 14px; }
+.match .pr { font-weight: 600; }
+.stats .stat { background: var(--card); border: 1px solid var(--border); }
