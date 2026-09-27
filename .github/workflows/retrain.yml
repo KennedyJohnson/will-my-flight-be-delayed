@@ -1,0 +1,97 @@
+name: Monthly retrain
+
+# BTS publishes a new month ~2-3 months after the fact. Checks weekly; retrains only when a
+# new month appears (or on manual run with force), keeping a rolling 12-month window.
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Retrain even if no new BTS month
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: retrain
+  cancel-in-progress: false
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Is there a new BTS month?
+        id: check
+        run: |
+          latest=$(python pipeline/00_download.py --check)
+          current=$(python -c "import json;print(json.load(open('docs/data/metrics.json'))['train_period'][1][:7])")
+          echo "latest=$latest current=$current"
+          if [ "$latest" != "$current" ] || [ "${{ inputs.force }}" = "true" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Cache FAA registry (fallback when registry.faa.gov is down)
+        if: steps.check.outputs.run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: raw/faa
+          key: faa-${{ github.run_id }}
+          restore-keys: faa-
+
+      - name: Download data
+        if: steps.check.outputs.run == 'true'
+        run: python pipeline/00_download.py
+      - name: Build flights table
+        if: steps.check.outputs.run == 'true'
+        run: python pipeline/01_load.py
+      - name: Fetch weather
+        if: steps.check.outputs.run == 'true'
+        run: python pipeline/02_weather.py
+      - name: Train
+        if: steps.check.outputs.run == 'true'
+        working-directory: pipeline
+        run: python train.py
+      - name: Accuracy gate
+        if: steps.check.outputs.run == 'true'
+        run: python pipeline/check_metrics.py
+      - name: Export site data
+        if: steps.check.outputs.run == 'true'
+        working-directory: pipeline
+        run: python export.py
+
+      # Commits every run: records freshness and keeps the repo active so GitHub
+      # doesn't disable this cron after 60 days.
+      - name: Commit
+        run: |
+          echo "{\"updated\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"retrained\": ${{ steps.check.outputs.run == 'true' }}}" > docs/data/last_updated.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs report
+          git diff --staged --quiet || git commit -m "chore: monthly data refresh [automated]"
+          git push
+
+  alert-on-failure:
+    needs: retrain
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              ...context.repo,
+              title: `Retrain failed (${new Date().toISOString().slice(0,10)})`,
+              body: `The site keeps serving the previous model, which is going stale.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              labels: ['stale-data'],
+            });

@@ -1,0 +1,7 @@
+pandas>=3.0
+pyarrow>=20
+lightgbm>=4.6
+shap>=0.50
+matplotlib
+scikit-learn>=1.6
+requests

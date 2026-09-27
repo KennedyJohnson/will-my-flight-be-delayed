@@ -503,6 +503,14 @@ function renderAbout() {
   $("data-note").textContent = `Trained on ${metrics.n_flights.toLocaleString()} flights (${metrics.train_period[0]} to ${metrics.train_period[1]}). ` +
     `Schedules reflect flights operated in the 8 weeks up to ${metrics.schedule_through}; newer or changed flights may be missing. ` +
     (metrics.dropped.length ? `Features pruned by SHAP: ${metrics.dropped.join(", ")}.` : "");
+  // BTS data lags ~2-3 months; past ~5 months the monthly retrain has likely stopped.
+  const ageDays = (Date.now() - new Date(metrics.schedule_through)) / 86400000;
+  if (ageDays > 150) {
+    const b = document.createElement("div");
+    b.className = "stale-banner";
+    b.textContent = `Heads up: flight schedules are only current through ${metrics.schedule_through}, so newer flights may be missing.`;
+    document.body.prepend(b);
+  }
 }
 
 init();

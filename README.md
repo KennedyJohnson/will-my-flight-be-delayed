@@ -27,11 +27,11 @@ The deployed model is refit on all 12 months. It runs entirely in the browser: t
 ## Reproduce
 
 ```bash
-pip install pandas pyarrow lightgbm shap matplotlib scikit-learn requests
-# download BTS monthly zips into raw/, OurAirports airports.csv, and FAA ReleasableAircraft.zip (MASTER/ACFTREF -> raw/faa/)
+pip install -r requirements.txt
+python pipeline/00_download.py   # rolling 12 months of BTS + airports + FAA registry
 python pipeline/01_load.py
 python pipeline/02_weather.py
-cd pipeline && python train.py && python export.py
+cd pipeline && python train.py && python check_metrics.py && python export.py
 ```
 
 ## Limitations

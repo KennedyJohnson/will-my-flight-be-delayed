@@ -121,3 +121,5 @@ footer { margin-top: 64px; border-top: 1px solid var(--border); padding-top: 16p
 .match .meta { color: var(--ink2); font-size: 14px; }
 .match .pr { font-weight: 600; }
 .stats .stat { background: var(--card); border: 1px solid var(--border); }
+
+.stale-banner { background: #fff4e5; color: #663c00; border-bottom: 1px solid #f0c36d; padding: 6px 12px; font-size: 13px; text-align: center; }

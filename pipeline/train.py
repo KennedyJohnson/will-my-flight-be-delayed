@@ -17,7 +17,6 @@ import matplotlib.pyplot as plt  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 RAW, REPORT = ROOT / "raw", ROOT / "report"
 REPORT.mkdir(exist_ok=True)
-SPLIT = pd.Timestamp("2026-06-01")
 WX_COLS = [c for c in F.FEATURES if c[:2] in ("o_", "d_")]
 PARAMS = dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_in_leaf=500,
               feature_fraction=0.8, bagging_fraction=0.8, bagging_freq=1, lambda_l2=1.0, verbose=-1)
@@ -25,6 +24,8 @@ PARAMS = dict(objective="binary", learning_rate=0.05, num_leaves=255, min_data_i
 import os
 SMOKE = os.environ.get("SMOKE")
 raw = pd.read_parquet(RAW / "flights.parquet")
+# Validate on the last 2 months of data (rolling window, so derive instead of hardcoding)
+SPLIT = raw["date"].max().to_period("M").to_timestamp() - pd.DateOffset(months=1)
 if SMOKE:
     raw = raw.sample(300_000, random_state=0); RAW = ROOT / "raw" / "smoke"; RAW.mkdir(exist_ok=True); REPORT = RAW
     PARAMS["learning_rate"] = 0.3
