@@ -15,4 +15,4 @@ Static GitHub Pages site (`docs/`, served from main) predicting P(arrival 15+ mi
 `docs/index.html`, `docs/js/app.js` (UI, flight lookup, live forecast weather from Open-Meteo), `docs/js/model.js` (tree evaluator). Stale banner shows when `metrics.schedule_through` > 150 days old.
 
 ## Automation
-`.github/workflows/retrain.yml` — weekly check; full retrain only when a new BTS month appears (or manual `force`). ~2-4 h on the runner. Commits `docs/ report/` + `docs/data/last_updated.json` every run (keeps cron alive). Failure → `stale-data` issue.
+`.github/workflows/retrain.yml` — weekly check; full retrain only when a new BTS month appears (or manual `force`). ~2-4 h on the runner. Commits `docs/ report/` + `docs/data/last_updated.json` every run (keeps cron alive). Requests a Pages build after pushing. Failure → `stale-data` issue.

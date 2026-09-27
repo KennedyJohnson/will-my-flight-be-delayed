@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 concurrency:
   group: retrain
@@ -71,6 +72,8 @@ jobs:
       # Commits every run: records freshness and keeps the repo active so GitHub
       # doesn't disable this cron after 60 days.
       - name: Commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "{\"updated\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"retrained\": ${{ steps.check.outputs.run == 'true' }}}" > docs/data/last_updated.json
           git config user.name "github-actions[bot]"
@@ -78,6 +81,8 @@ jobs:
           git add docs report
           git diff --staged --quiet || git commit -m "chore: monthly data refresh [automated]"
           git push
+          # GITHUB_TOKEN pushes may not trigger a Pages build; request one explicitly.
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" || true
 
   alert-on-failure:
     needs: retrain
