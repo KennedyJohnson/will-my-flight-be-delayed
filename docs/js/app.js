@@ -49,7 +49,15 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const $ = (id) => document.getElementById(id);
 const cache = {};
-const getJSON = (url) => (cache[url] ??= fetch(url).then((r) => (r.ok ? r.json() : null)));
+// A network error isn't cached, so the next lookup retries it (a missing file, HTTP 404, is cached as null)
+const getJSON = (url) => (cache[url] ??= fetch(url).then((r) => (r.ok ? r.json() : null))
+  .catch((err) => { delete cache[url]; throw err; }));
+// The model loads in the background; a failed load is retried on the next lookup
+let modelLoad;
+const loadModel = () => (modelLoad ??= getJSON("data/model.json").then((m) => {
+  if (!m) throw new Error("model.json unavailable");
+  return (model = new DelayModel(m));
+}).catch((err) => { modelLoad = undefined; throw err; }));
 
 let model, stats, airports, carriers, metrics, map, mapLayers = [];
 
@@ -71,7 +79,10 @@ async function init() {
   setTheme(saved ?? "dark");
   $("theme").onclick = () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
   $("search").onsubmit = (e) => { e.preventDefault(); run(); };
-  $("route-search").onsubmit = (e) => { e.preventDefault(); runRoute(); };
+  $("route-search").onsubmit = (e) => {
+    e.preventDefault();
+    runRoute().catch((err) => { console.error(err); showError("Something went wrong loading schedules. Please try again."); });
+  };
   $("route-date").value = $("date").value;
   const setMode = (route) => {
     $("mode-num").classList.toggle("active", !route);
@@ -82,15 +93,21 @@ async function init() {
   $("mode-num").onclick = () => setMode(false);
   $("mode-route").onclick = () => setMode(true);
 
-  [stats, airports, carriers, metrics] = await Promise.all(
-    ["data/stats.json", "data/airports.json", "data/carriers.json", "data/metrics.json"].map(getJSON));
+  try {
+    [stats, airports, carriers, metrics] = await Promise.all(
+      ["data/stats.json", "data/airports.json", "data/carriers.json", "data/metrics.json"].map(getJSON));
+    if (!stats || !airports || !carriers || !metrics) throw new Error("site data missing");
+  } catch (err) {
+    console.error(err);
+    return showError("Couldn't load the flight data. Please refresh the page.");
+  }
   renderAbout();
   const brands = Object.keys(PARTNERS).filter((c) => carriers[c] || PARTNERS[c].some((p) => carriers[p]));
   $("airline").innerHTML = `<option value="">Any airline</option>` + brands.concat(Object.keys(carriers).filter((c) => !brands.includes(c) && !Object.values(PARTNERS).flat().includes(c)))
     .map((c) => `<option value="${c}">${carriers[c]?.name ?? c}</option>`).join("");
   $("airport-list").innerHTML = Object.entries(airports).sort((a, b) => b[1].flights - a[1].flights)
     .map(([code, a]) => `<option value="${code} · ${a.city ?? ""}${a.region ? ", " + a.region : ""}"></option>`).join("");
-  getJSON("data/model.json").then((m) => (model = new DelayModel(m)));
+  loadModel().catch((err) => console.error(err));
 
   const q = new URLSearchParams(location.search);
   if (q.get("flight")) {
@@ -210,7 +227,12 @@ async function runRoute() {
     $("legs").innerHTML = "";
     $("flight").value = `${f.parsed.carrier} ${f.parsed.num}`;
     history.replaceState(null, "", `?flight=${f.parsed.carrier}${f.parsed.num}&date=${date}`);
-    await showLeg(f.parsed, f.operator, f.leg, date, false);
+    try {
+      await showLeg(f.parsed, f.operator, f.leg, date, false);
+    } catch (err) {
+      console.error(err);
+      showError("Something went wrong loading data. Please try again.");
+    }
   };
 }
 
@@ -264,7 +286,7 @@ async function showLeg(parsed, operator, leg, date, notOnDate) {
   const arrDate = leg.arr < leg.dep ? addDays(date, 1) : date;
   const [oHourly, dHourly] = await Promise.all([fetchWeather(leg.o, date), fetchWeather(leg.d, arrDate)]);
   const oWx = wxAt(oHourly, depHour), dWx = wxAt(dHourly, arrHour);
-  while (!model) await new Promise((r) => setTimeout(r, 100));
+  await loadModel(); // throws if it can't load, so the caller shows an error instead of waiting forever
 
   const d = parseDate(date);
   const prior = stats.prior;
