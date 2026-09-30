@@ -1,0 +1,6 @@
+# Cloudflare Worker that looks up today's route for a flight number (AeroDataBox via RapidAPI).
+# Deployed by .github/workflows/worker.yml; the RapidAPI key is a Worker secret (RAPIDAPI_KEY).
+name = "flight-lookup"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
