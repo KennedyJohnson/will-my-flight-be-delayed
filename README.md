@@ -24,6 +24,16 @@ The deployed model is refit on all 12 months. It runs entirely in the browser: t
 
 ![SHAP importance](docs/img/shap_bar.png)
 
+### Live scorecard
+
+A validation split only says how the model *should* do. So when BTS releases a new month, and before the retrain replaces anything, [`pipeline/scorecard.py`](pipeline/scorecard.py) scores the model the site was actually serving on that month's flights. The model never saw them. It uses the published tree dump, lookup tables and schedules, through a Python port of `model.js` that matches it exactly. Results go to [`docs/data/scorecard.json`](docs/data/scorecard.json) and appear on the site under "How it works":
+- AUC and Brier score.
+- AUC of the flight-history baseline.
+- Predicted vs actual delay rate, plus a calibration table.
+- Coverage, meaning the share of flights the site could have looked up.
+
+If live AUC falls more than 0.03 below validation AUC, the workflow opens an issue. One caveat: the scorecard uses archived weather, while users get forecasts, so its weather inputs are a best case.
+
 ## Reproduce
 
 ```bash
@@ -31,7 +41,7 @@ pip install -r requirements.txt
 python pipeline/00_download.py   # rolling 12 months of BTS + airports + FAA registry
 python pipeline/01_load.py
 python pipeline/02_weather.py
-cd pipeline && python train.py && python check_metrics.py && python export.py
+cd pipeline && python scorecard.py && python train.py && python check_metrics.py && python export.py
 ```
 
 ## Limitations

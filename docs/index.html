@@ -89,6 +89,10 @@
       <p class="small muted">Tested on the most recent two months of flights, which the model never saw during training:</p>
       <div class="tablewrap"><table id="metrics"></table></div>
       <p class="small muted" id="data-note"></p>
+      <div id="scorecard" hidden>
+        <p class="small muted"><b>Live scorecard.</b> Each month BTS releases, before retraining, the model the site was serving is scored on that month's flights. It had never seen them. Weather inputs use what actually happened rather than the forecast you'd see, so treat these as a best case for weather.</p>
+        <div class="tablewrap"><table id="scorecard-table"></table></div>
+      </div>
       <img src="img/shap_bar.png" alt="Features ranked by average impact on predictions (mean absolute SHAP value)" class="shap">
       <p class="small muted">Features ranked by average impact on predictions (mean |SHAP value|).</p>
     </details>
