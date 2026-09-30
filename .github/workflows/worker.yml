@@ -1,4 +1,4 @@
-name: Deploy flight-lookup Worker
+name: Deploy flight lookup Worker
 
 # Deploys worker/ to Cloudflare. Needs repo secrets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID and
 # RAPIDAPI_KEY; skips (green) until they exist.
