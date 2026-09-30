@@ -60,6 +60,7 @@ const loadModel = () => (modelLoad ??= getJSON("data/model.json").then((m) => {
 }).catch((err) => { modelLoad = undefined; throw err; }));
 
 let model, stats, airports, carriers, metrics, map, mapLayers = [];
+let setMode;
 
 async function init() {
   const today = new Date();
@@ -84,11 +85,22 @@ async function init() {
     runRoute().catch((err) => { console.error(err); showError("Something went wrong loading schedules. Please try again."); });
   };
   $("route-date").value = $("date").value;
-  const setMode = (route) => {
+  setMode = (route) => {
     $("mode-num").classList.toggle("active", !route);
     $("mode-route").classList.toggle("active", route);
     $("search").hidden = route; $("route-search").hidden = !route; $("examples").hidden = route;
     $("matches").hidden = true; $("error").hidden = true;
+  };
+  // Airlines reuse flight numbers, and our schedules lag the BTS release by ~2 months, so a number
+  // can point to last season's route. Let the user jump to a route search for the same airline.
+  $("route-check-btn").onclick = () => {
+    const brand = $("route-check-btn").dataset.brand;
+    setMode(true);
+    $("result").hidden = true;
+    if ([...$("airline").options].some((o) => o.value === brand)) $("airline").value = brand;
+    $("route-date").value = $("date").value;
+    $("from").value = ""; $("to").value = "";
+    $("from").focus();
   };
   $("mode-num").onclick = () => setMode(false);
   $("mode-route").onclick = () => setMode(true);
@@ -162,6 +174,7 @@ async function run() {
     const legs = found.legs;
     const flying = legs.filter((l) => l.dows & (1 << dow));
     renderLegTabs(parsed, found, legs, flying, date);
+    renderRouteCheck(parsed, legs, flying);
     await showLeg(parsed, found.operator, flying[0] ?? legs[0], date, !flying.length);
   } catch (err) {
     console.error(err);
@@ -225,6 +238,7 @@ async function runRoute() {
     b.classList.add("active");
     const f = found[+b.dataset.i];
     $("legs").innerHTML = "";
+    $("route-check").hidden = true;
     $("flight").value = `${f.parsed.carrier} ${f.parsed.num}`;
     history.replaceState(null, "", `?flight=${f.parsed.carrier}${f.parsed.num}&date=${date}`);
     try {
@@ -237,6 +251,22 @@ async function runRoute() {
 }
 
 function showError(msg) { $("error").textContent = msg; $("error").hidden = false; }
+
+function renderRouteCheck(parsed, legs, flying) {
+  const shown = flying.length ? flying : legs;
+  const routes = [...new Set(shown.map((l) => `${l.o} → ${l.d}`))];
+  const through = metrics?.schedule_through
+    ? parseDate(metrics.schedule_through).toLocaleDateString("en", { month: "long", day: "numeric" })
+    : null;
+  const list = routes.length > 2 ? `${routes.slice(0, 2).join(", ")} and ${routes.length - 2} more` : routes.join(" and ");
+  const text = $("route-check-text");
+  text.textContent = "";
+  text.append(`${through ? `In schedules through ${through}, ` : "In recent schedules, "}${parsed.carrier} ${parsed.num} flew `);
+  const b = document.createElement("b"); b.textContent = list; text.append(b);
+  text.append(". Airlines reuse flight numbers, so if your ticket shows a different route, search by route instead.");
+  $("route-check-btn").dataset.brand = OPERATED_BY[parsed.carrier] ?? parsed.carrier;
+  $("route-check").hidden = false;
+}
 
 function renderLegTabs(parsed, found, legs, flying, date) {
   const box = $("legs");
@@ -472,7 +502,8 @@ let anim;
 
 function renderMap(leg) {
   const o = airports[leg.o], d = airports[leg.d];
-  if (!o || !d) return;
+  $("map").hidden = typeof L === "undefined"; // map library blocked or offline: skip the map, keep the forecast
+  if (!o || !d || $("map").hidden) return;
   if (!map) {
     map = L.map("map", { zoomControl: false, attributionControl: true, worldCopyJump: true, scrollWheelZoom: false });
     setTiles();

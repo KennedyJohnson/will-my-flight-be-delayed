@@ -36,6 +36,9 @@ a { color: var(--accent); }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-top: 16px; }
 .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
 .error { color: var(--bad); font-size: 14px; }
+.route-check { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 16px; padding: 12px 16px; border: 1px solid var(--mid); border-radius: 12px; background: var(--card); }
+.route-check p { margin: 0; flex: 1 1 260px; font-size: 15px; color: var(--ink2); }
+.route-check b { color: var(--ink); }
 
 .search { display: flex; gap: 8px; margin-top: 24px; flex-wrap: wrap; }
 .search input { font: inherit; font-size: 17px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); color: var(--ink); min-width: 0; }
