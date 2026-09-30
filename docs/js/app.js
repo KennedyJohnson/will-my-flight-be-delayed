@@ -60,6 +60,9 @@ const loadModel = () => (modelLoad ??= getJSON("data/model.json").then((m) => {
 }).catch((err) => { modelLoad = undefined; throw err; }));
 
 let model, stats, airports, carriers, metrics, map, mapLayers = [];
+// Cloudflare Worker (worker/) that returns a flight number's scheduled route on a date from a live
+// schedule API. Empty = off: lookups use only the BTS schedules, which lag ~2 months.
+const LIVE_URL = "";
 let setMode;
 
 async function init() {
@@ -167,7 +170,16 @@ async function run() {
   btn.disabled = true; btn.textContent = "Checking…";
   $("result").hidden = true;
   try {
-    const found = await findLegs(parsed);
+    const [found, live] = await Promise.all([findLegs(parsed), lookupLive(parsed, date)]);
+    if (live?.length) {
+      history.replaceState(null, "", `?flight=${parsed.carrier}${parsed.num}&date=${date}`);
+      const merged = await Promise.all(live.map((l) => mergeLiveLeg(parsed, found, l)));
+      const legs = merged.map((m) => m.leg);
+      renderLegTabs(parsed, { operator: merged[0].operator }, legs, legs, date);
+      renderLiveCheck(parsed, merged[0], date);
+      await showLeg(parsed, merged[0].operator, legs[0], date, false);
+      return;
+    }
     if (!found) return showError(`No recent schedule found for ${parsed.carrier} ${parsed.num}. It may be international, seasonal, or not reported to the BTS.`);
     history.replaceState(null, "", `?flight=${parsed.carrier}${parsed.num}&date=${date}`);
     const dow = (parseDate(date).getDay() + 6) % 7;
@@ -252,6 +264,64 @@ async function runRoute() {
 
 function showError(msg) { $("error").textContent = msg; $("error").hidden = false; }
 
+async function lookupLive(parsed, date) {
+  if (!LIVE_URL) return null;
+  try {
+    const r = await fetch(`${LIVE_URL}?flight=${parsed.carrier}${parsed.num}&date=${date}`, { signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return (j.legs ?? []).filter((l) => airports[l.o] && airports[l.d] && l.dep != null);
+  } catch { return null; } // slow, down or out of quota: fall back to the BTS schedules
+}
+
+const hhmmToMin = (t) => Math.floor(t / 100) * 60 + (t % 100);
+
+function milesBetween(a, b) {
+  const r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
+  return Math.round(3958.8 * 2 * Math.asin(Math.sqrt(h)));
+}
+
+// Live route + time, with history features from the BTS schedules: this flight number on the same
+// route if it flew it, else the airline's regular flight on that route closest in departure time.
+async function mergeLiveLeg(parsed, found, live) {
+  let base = found?.legs.find((l) => l.o === live.o && l.d === live.d), operator = found?.operator, from = null;
+  if (!base) {
+    const brand = OPERATED_BY[parsed.carrier] ?? parsed.carrier;
+    let bestGap = Infinity;
+    for (const c of [brand, ...(PARTNERS[brand] ?? [])]) {
+      const table = await getJSON(`data/flights/${c}.json`);
+      for (const [num, legs] of Object.entries(table ?? {})) {
+        for (const l of legs) {
+          if (l.o !== live.o || l.d !== live.d) continue;
+          // closest departure time, but a regular flight (10+ records) beats a one-off at any gap
+          const gap = Math.abs(hhmmToMin(l.dep) - hhmmToMin(live.dep)) + ((l.hn ?? 0) < 10 ? 1e4 : 0);
+          if (gap < bestGap) { bestGap = gap; base = l; operator = c; from = `${brand} ${num}`; }
+        }
+      }
+    }
+  }
+  const b = base ?? { dows: 127, leg: null, turn: null, ac: null, age: null, seats: null, inb: null, fr: null, hr: null, hn: 0, ad: null, cx: null };
+  const el = live.el ?? b.el ?? null;
+  const arr = live.arr ?? (el != null ? ((Math.floor((hhmmToMin(live.dep) + el) / 60) % 24) * 100 + (hhmmToMin(live.dep) + el) % 60) : live.dep);
+  return {
+    operator: operator ?? parsed.carrier,
+    from,
+    leg: { ...b, o: live.o, d: live.d, dep: live.dep, arr, el: el ?? b.el, dist: b.dist ?? milesBetween(airports[live.o], airports[live.d]), live: true },
+  };
+}
+
+function renderLiveCheck(parsed, m, date) {
+  const text = $("route-check-text");
+  const day = parseDate(date).toLocaleDateString("en", { month: "short", day: "numeric" });
+  text.textContent = `Live schedule: ${parsed.carrier} ${parsed.num} on ${day} is `;
+  const b = document.createElement("b"); b.textContent = `${m.leg.o} → ${m.leg.d} at ${fmtTime(m.leg.dep)}`; text.append(b);
+  text.append(m.from ? `. Its history below comes from ${m.from}, the same route at a similar time.`
+    : m.leg.hn ? "." : ". There's no history for this route in the government data, so the estimate leans on airport and airline averages.");
+  $("route-check-btn").hidden = true;
+  $("route-check").hidden = false;
+}
+
 function renderRouteCheck(parsed, legs, flying) {
   const shown = flying.length ? flying : legs;
   const routes = [...new Set(shown.map((l) => `${l.o} → ${l.d}`))];
@@ -265,6 +335,7 @@ function renderRouteCheck(parsed, legs, flying) {
   const b = document.createElement("b"); b.textContent = list; text.append(b);
   text.append(". Airlines reuse flight numbers, so if your ticket shows a different route, search by route instead.");
   $("route-check-btn").dataset.brand = OPERATED_BY[parsed.carrier] ?? parsed.carrier;
+  $("route-check-btn").hidden = false;
   $("route-check").hidden = false;
 }
 
@@ -398,7 +469,7 @@ function renderStats(leg, operator) {
     ["Arrives", fmtTime(leg.arr), `${leg.d} local time${leg.arr < leg.dep ? " (+1 day)" : ""}`],
     ["Flight time", fmtDur(leg.el), "scheduled gate to gate"],
     ["Distance", `${leg.dist.toLocaleString()} mi`, `${Math.round(leg.dist * 1.609).toLocaleString()} km`],
-    ["On-time record", pct(1 - leg.hr), `${leg.hn} flights in the past year`],
+    ["On-time record", leg.hr == null ? "–" : pct(1 - leg.hr), `${leg.hn ?? 0} flights in the past year`],
     ["Avg delay when late", leg.ad ? `${leg.ad} min` : "–", "arrival delay"],
     ["Cancellation rate", pct(leg.cx, 1), "this flight, past year"],
     ["Airline delay rate", pct(carriers[operator]?.rate), `${carriers[operator]?.name ?? operator}, all flights`],
