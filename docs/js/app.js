@@ -62,7 +62,7 @@ const loadModel = () => (modelLoad ??= getJSON("data/model.json").then((m) => {
 let model, stats, airports, carriers, metrics, map, mapLayers = [];
 // Cloudflare Worker (worker/) that returns a flight number's scheduled route on a date from a live
 // schedule API. Empty = off: lookups use only the BTS schedules, which lag ~2 months.
-const LIVE_URL = "";
+const LIVE_URL = "https://will-my-flight-be-delayed.ken-j.workers.dev/";
 let setMode;
 
 async function init() {
