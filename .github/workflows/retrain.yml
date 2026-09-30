@@ -26,8 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 355
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -43,7 +43,7 @@ jobs:
 
       - name: Cache FAA registry (fallback when registry.faa.gov is down)
         if: steps.check.outputs.run == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: raw/faa
           key: faa-${{ github.run_id }}
@@ -68,7 +68,7 @@ jobs:
       - name: Open an issue if live accuracy drifted
         if: steps.check.outputs.run == 'true' && hashFiles('raw/drift.txt') != ''
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const body = require('fs').readFileSync('raw/drift.txt', 'utf8');
@@ -112,7 +112,7 @@ jobs:
     permissions:
       issues: write
     steps:
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v9
         with:
           script: |
             await github.rest.issues.create({
