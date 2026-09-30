@@ -8,6 +8,7 @@ Static GitHub Pages site (`docs/`, served from main) predicting P(arrival 15+ mi
 - `02_weather.py` - Open-Meteo archive hourly weather per airport → `raw/weather/<IATA>.parquet`. Skips existing files, so delete `raw/weather` when the date window changes.
 - `features.py` - shared feature code (turn time, holidays, aircraft age/type, weather join, target encoding).
 - `train.py` (run from `pipeline/`) - validates on last 2 months (derived from data), SHAP feature pruning, final model on all data → `raw/model.txt`, `report/metrics.json` + SHAP pngs. `SMOKE=1` = fast 300k-row run into `raw/smoke`.
+- `scorecard.py` (from `pipeline/`, BEFORE train/export) - scores the *published* model (`docs/data/model.json` + stats + schedules, Python port of `model.js`) on flights after its training window → appends to `docs/data/scorecard.json`; writes `raw/drift.txt` if live AUC < validation AUC - 0.03 (workflow opens an issue).
 - `check_metrics.py` - fails if new validation AUC drops >0.02 vs committed `report/metrics.json`.
 - `export.py` (from `pipeline/`) → `docs/data/{model,stats,airports,carriers,metrics}.json`, `docs/data/flights/<carrier>.json` (schedules from last 8 weeks).
 

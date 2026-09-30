@@ -503,6 +503,14 @@ function renderAbout() {
   $("data-note").textContent = `Trained on ${metrics.n_flights.toLocaleString()} flights (${metrics.train_period[0]} to ${metrics.train_period[1]}). ` +
     `Schedules reflect flights operated in the 8 weeks up to ${metrics.schedule_through}; newer or changed flights may be missing. ` +
     (metrics.dropped.length ? `Features pruned by SHAP: ${metrics.dropped.join(", ")}.` : "");
+  getJSON("data/scorecard.json").then((card) => {
+    if (!card?.months?.length) return;
+    const f = (x) => x.toFixed(3), pct = (x) => `${Math.round(x * 100)}%`;
+    $("scorecard-table").innerHTML = `<tr><th>Month</th><th>Flights</th><th>AUC</th><th>AUC at validation</th><th>Flight-history AUC</th><th>Predicted / actual delay rate</th></tr>` +
+      card.months.slice(-12).reverse().map((m) => `<tr><td>${m.month}</td><td>${m.n.toLocaleString()} (${pct(m.coverage)})</td><td>${f(m.auc)}</td>` +
+        `<td>${f(m.validation_auc)}</td><td>${f(m.baseline_flight_rate_auc)}</td><td>${pct(m.mean_pred)} / ${pct(m.actual_rate)}</td></tr>`).join("");
+    $("scorecard").hidden = false;
+  });
   // BTS data lags ~2-3 months; past ~5 months the monthly retrain has likely stopped.
   const ageDays = (Date.now() - new Date(metrics.schedule_through)) / 86400000;
   if (ageDays > 150) {
