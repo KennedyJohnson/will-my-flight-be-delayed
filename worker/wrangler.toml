@@ -4,3 +4,6 @@ name = "will-my-flight-be-delayed"
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 workers_dev = true
+# Keep variables set in the Cloudflare dashboard across Git-triggered rebuilds (RAPIDAPI_KEY should be
+# a Secret, which always persists; this also keeps it if it was added as a plain variable).
+keep_vars = true
