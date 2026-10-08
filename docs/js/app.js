@@ -297,7 +297,7 @@ async function mergeLiveLeg(parsed, found, live) {
   return {
     operator: operator ?? parsed.carrier,
     from,
-    leg: { ...b, o: live.o, d: live.d, dep: live.dep, arr, el: el ?? b.el, dist: b.dist ?? milesBetween(airports[live.o], airports[live.d]), live: true },
+    leg: { ...b, o: live.o, d: live.d, dep: live.dep, arr, el: el ?? b.el, dist: b.dist ?? milesBetween(airports[live.o], airports[live.d]), live: true, reg: live.reg ?? null },
   };
 }
 
@@ -614,8 +614,11 @@ function renderMap(leg) {
 }
 
 // ---------- Live aircraft position ----------
-// Positions come from the same Cloudflare Worker as the live schedule (browsers can't read ADS-B feeds directly).
-const POS_URL = (location.hostname === "localhost" && new URLSearchParams(location.search).get("live")) || LIVE_URL;
+// Positions come from a small Vercel function (flight-position repo): browsers can't read ADS-B feeds directly
+// and the free feeds refuse Cloudflare Workers.
+const TEST_REG = location.hostname === "localhost" ? new URLSearchParams(location.search).get("reg") : null; // local testing only
+const POS_API = "https://flight-position.vercel.app/api/position";
+const POS_URL = (location.hostname === "localhost" && new URLSearchParams(location.search).get("live")) || POS_API;
 const ICAO = { AA: "AAL", DL: "DAL", UA: "UAL", WN: "SWA", AS: "ASA", B6: "JBU", NK: "NKS", F9: "FFT", G4: "AAY", HA: "HAL",
   SY: "SCX", YX: "RPA", OO: "SKW", MQ: "ENY", "9E": "EDV", OH: "JIA", YV: "ASH", QX: "QXE", CP: "CPZ", ZW: "AWI",
   G7: "GJS", PT: "PDT", EV: "ASQ", MX: "MXY", XP: "VXP", "3M": "SIL" };
@@ -636,11 +639,11 @@ function kmBetween(a, b) {
 function startLive(parsed, operator, leg, date) {
   if (!POS_URL || !map || !routePts.length) return;
   const today = isoDate(new Date());
-  if (date !== today && date !== addDays(today, -1)) return;
+  if (date < addDays(today, -1) || date > addDays(today, 1)) return;
   const prefixes = [...new Set([parsed.carrier, operator].map((c) => ICAO[c]).filter(Boolean))];
   const callsigns = prefixes.map((p) => `${p}${parsed.num}`);
-  if (!callsigns.length) return;
-  liveCtx = { callsigns, leg };
+  if (!callsigns.length && !leg.reg && !TEST_REG) return;
+  liveCtx = { callsigns, leg, reg: TEST_REG || leg.reg || null };
   const tick = () => { if (!document.hidden) pollLive(); };
   tick();
   liveTimer = setInterval(tick, 20000);
@@ -663,26 +666,41 @@ async function pollLive() {
     } catch { /* feed unavailable: treat as a miss */ }
   }
   if (ctx !== liveCtx) return;
+  if (ctx.reg && !livePlane) {
+    try {
+      const j = await (await fetch(`${POS_URL}${POS_URL.includes("?") ? "&" : "?"}reg=${ctx.reg}`)).json();
+      if (ctx !== liveCtx) return;
+      if (j.found) { liveMisses = 0; return drawLive(j, [j.lat, j.lon], true); }
+    } catch { /* feed unavailable */ }
+  }
   if (++liveMisses >= 12) { clearInterval(liveTimer); liveTimer = null; }
   const note = $("live-note");
   if (liveMisses >= 99) return; // tracking feed unavailable: stay quiet
   if (!livePlane && note) { note.textContent = "Live position shows here once the flight is in the air."; note.hidden = false; }
 }
 
-function drawLive(j, here) {
+function drawLive(j, here, inbound = false) {
   cancelAnimationFrame(anim); decoPlane?.remove(); decoPlane = null;
   const warm = css("--warm");
   let k = 0, best = Infinity;
   routePts.forEach((p, i) => { const d = kmBetween(here, p); if (d < best) { best = d; k = i; } });
   const html = `<div style="color:${warm};line-height:0;transform:rotate(${j.track ?? bearing(routePts[k], routePts[Math.min(k + 1, routePts.length - 1)])}deg)">${PLANE_SVG.replace("26", "32").replace("26", "32")}</div>`;
   const icon = L.divIcon({ className: "live-plane", html, iconSize: [32, 32], iconAnchor: [16, 16] });
-  const tip = `${j.callsign} · ${j.alt_ft === 0 ? "on the ground" : j.alt_ft != null ? j.alt_ft.toLocaleString() + " ft" : ""}${j.speed_kt ? " · " + Math.round(j.speed_kt * 1.15078) + " mph" : ""}`;
+  const tip = `${inbound ? "Your plane " + (j.reg ?? "") + " · " : ""}${j.callsign ?? ""} · ${j.alt_ft === 0 ? "on the ground" : j.alt_ft != null ? j.alt_ft.toLocaleString() + " ft" : ""}${j.speed_kt ? " · " + Math.round(j.speed_kt * 1.15078) + " mph" : ""}`;
   if (livePlane) { livePlane.setLatLng(here); livePlane.setIcon(icon); livePlane.setTooltipContent(tip); }
   else livePlane = L.marker(here, { icon, zIndexOffset: 1000 }).bindTooltip(tip, { direction: "top", offset: [0, -14] }).addTo(map);
-  liveTrail?.remove();
-  liveTrail = L.polyline([...routePts.slice(0, k + 1), here], { color: warm, weight: 3, opacity: 0.9 }).addTo(map);
+  liveTrail?.remove(); liveTrail = null;
+  if (!inbound) liveTrail = L.polyline(routePts.slice(0, k + 1), { color: warm, weight: 3, opacity: 0.9 }).addTo(map);
+  else map.fitBounds(L.latLngBounds([...routePts, here]), { padding: [50, 50] });
   const note = $("live-note");
-  if (note) {
+  if (note && inbound) {
+    const mi = Math.round(kmBetween(here, routePts[0]) * 0.621371);
+    const mph = j.speed_kt ? Math.round(j.speed_kt * 1.15078) : 0;
+    const toward = j.track != null && Math.abs(((bearing(here, routePts[0]) - j.track + 540) % 360) - 180) < 45;
+    const eta = j.alt_ft === 0 ? " It is on the ground right now." : (toward && mph > 100 ? ` Heading this way at ${mph} mph, it is about ${Math.max(1, Math.round(mi / mph * 60))} minutes away.` : " It is flying another route right now.");
+    note.textContent = `Your plane (${j.reg}${j.type ? ", " + j.type : ""}) is right now ${mi.toLocaleString()} miles from ${routePts.length ? ($("o-code").textContent || "the departure airport") : "the departure airport"}, still flying as ${j.callsign ?? "another flight"}.${eta}`;
+    note.hidden = false;
+  } else if (note) {
     const age = j.updated > 5 ? ` · position ${j.updated}s old` : "";
     note.textContent = `Live: ${j.callsign} at ${j.alt_ft != null ? j.alt_ft.toLocaleString() + " ft" : "unknown altitude"}${j.speed_kt ? ", " + Math.round(j.speed_kt * 1.15078) + " mph" : ""}${age}. Updates every 20 seconds.`;
     note.hidden = false;
