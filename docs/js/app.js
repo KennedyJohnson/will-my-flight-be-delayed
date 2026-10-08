@@ -72,16 +72,6 @@ async function init() {
   $("examples").onclick = (e) => {
     if (e.target.classList.contains("btn")) { $("flight").value = e.target.textContent; run(); }
   };
-  const setTheme = (t) => {
-    document.documentElement.dataset.theme = t;
-    $("theme").textContent = t === "dark" ? "Light" : "Dark";
-    try { localStorage.setItem("theme", t); } catch {}
-    if (map) setTiles();
-  };
-  let saved = null;
-  try { saved = localStorage.getItem("theme"); } catch {}
-  setTheme(saved ?? "dark");
-  $("theme").onclick = () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
   $("search").onsubmit = (e) => { e.preventDefault(); run(); };
   $("route-search").onsubmit = (e) => {
     e.preventDefault();
@@ -422,6 +412,7 @@ async function showLeg(parsed, operator, leg, date, notOnDate) {
   renderDrivers(res, row);
   renderWeather(leg, oWx, dWx, date, arrDate);
   renderMap(leg);
+  startLive(parsed, operator, leg, date);
   $("result").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -529,14 +520,22 @@ function wxCard(where, code, wx, time) {
   if (!wx) return `<div class="wx"><div class="where">${where} · ${code}</div><div class="t">No forecast yet</div></div>`;
   const [desc] = WMO[wx.weather_code] ?? ["–"];
   return `<div class="wx"><div class="where">${where} · ${code} · ${time}</div>
-    <div class="t">${Math.round(wx.temperature_2m)}°F, ${desc.toLowerCase()}</div>
+    <div class="t">${(WMO[wx.weather_code] ?? [])[1] ?? ""} ${Math.round(wx.temperature_2m)}°F, ${desc.toLowerCase()}</div>
     <ul><li>Wind ${Math.round(wx.wind_speed_10m)} mph, gusts ${Math.round(wx.wind_gusts_10m)} mph</li>
     <li>Cloud cover ${Math.round(wx.cloud_cover)}% (low clouds ${Math.round(wx.cloud_cover_low)}%)</li>
     <li>Precipitation ${wx.precipitation.toFixed(2)} in that hour, ${wx.precipitation_day.toFixed(2)} in that day</li>
     ${wx.snowfall_day > 0 ? `<li>Snow ${wx.snowfall_day.toFixed(1)} in that day</li>` : ""}</ul></div>`;
 }
 
+function wxGlance(wx) {
+  if (!wx) return "";
+  const [desc, icon] = WMO[wx.weather_code] ?? ["", "🌡️"];
+  const windy = wx.wind_gusts_10m >= 30 ? " · 💨 " + Math.round(wx.wind_gusts_10m) + " mph" : "";
+  return `<span title="${desc}">${icon} ${Math.round(wx.temperature_2m)}°F${windy}</span>`;
+}
+
 function renderWeather(leg, oWx, dWx) {
+  $("o-wx").innerHTML = wxGlance(oWx); $("d-wx").innerHTML = wxGlance(dWx);
   $("weather").innerHTML = wxCard("Departure", leg.o, oWx, fmtTime(leg.dep)) + wxCard("Arrival", leg.d, dWx, fmtTime(leg.arr));
 }
 
@@ -593,6 +592,9 @@ function renderMap(leg) {
     .bindTooltip(code, { permanent: true, direction: "top", className: "ap-label", offset: [0, -6] }).addTo(map);
   const icon = L.divIcon({ className: "", html: `<div style="color:${accent};line-height:0">${PLANE_SVG}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
   const plane = L.marker(pts[0], { icon, interactive: false }).addTo(map);
+  routePts = pts;
+  stopLive();
+  decoPlane = plane;
   mapLayers = [glow, line, dot(pts[0], leg.o), dot(pts[pts.length - 1], leg.d), plane];
   map.invalidateSize();
   map.fitBounds(line.getBounds(), { padding: [50, 50] });
@@ -609,6 +611,80 @@ function renderMap(leg) {
     anim = requestAnimationFrame(step);
   };
   anim = requestAnimationFrame(step);
+}
+
+// ---------- Live aircraft position ----------
+// Positions come from the same Cloudflare Worker as the live schedule (browsers can't read ADS-B feeds directly).
+const POS_URL = (location.hostname === "localhost" && new URLSearchParams(location.search).get("live")) || LIVE_URL;
+const ICAO = { AA: "AAL", DL: "DAL", UA: "UAL", WN: "SWA", AS: "ASA", B6: "JBU", NK: "NKS", F9: "FFT", G4: "AAY", HA: "HAL",
+  SY: "SCX", YX: "RPA", OO: "SKW", MQ: "ENY", "9E": "EDV", OH: "JIA", YV: "ASH", QX: "QXE", CP: "CPZ", ZW: "AWI",
+  G7: "GJS", PT: "PDT", EV: "ASQ", MX: "MXY", XP: "VXP", "3M": "SIL" };
+let routePts = [], decoPlane, livePlane, liveTrail, liveTimer, liveMisses = 0, liveCtx;
+
+function stopLive() {
+  clearInterval(liveTimer); liveTimer = null; liveMisses = 0;
+  livePlane?.remove(); liveTrail?.remove(); livePlane = liveTrail = null;
+  const note = $("live-note"); if (note) note.hidden = true;
+}
+
+function kmBetween(a, b) {
+  const r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}
+
+function startLive(parsed, operator, leg, date) {
+  if (!POS_URL || !map || !routePts.length) return;
+  const today = isoDate(new Date());
+  if (date !== today && date !== addDays(today, -1)) return;
+  const prefixes = [...new Set([parsed.carrier, operator].map((c) => ICAO[c]).filter(Boolean))];
+  const callsigns = prefixes.map((p) => `${p}${parsed.num}`);
+  if (!callsigns.length) return;
+  liveCtx = { callsigns, leg };
+  const tick = () => { if (!document.hidden) pollLive(); };
+  tick();
+  liveTimer = setInterval(tick, 20000);
+}
+
+async function pollLive() {
+  const ctx = liveCtx; if (!ctx) return;
+  for (const cs of ctx.callsigns) {
+    try {
+      const r = await fetch(`${POS_URL}${POS_URL.includes("?") ? "&" : "?"}callsign=${cs}`);
+      const j = await r.json();
+      if (ctx !== liveCtx) return;
+      if (!j.found) continue;
+      const here = [j.lat, j.lon];
+      const near = Math.min(...routePts.map((p) => kmBetween(here, p)));
+      if (near > 500) continue; // same callsign, different flight that day
+      liveMisses = 0;
+      return drawLive(j, here);
+    } catch { /* feed unavailable: treat as a miss */ }
+  }
+  if (ctx !== liveCtx) return;
+  if (++liveMisses >= 12) { clearInterval(liveTimer); liveTimer = null; }
+  const note = $("live-note");
+  if (!livePlane && note) { note.textContent = "Live position shows here once the flight is in the air."; note.hidden = false; }
+}
+
+function drawLive(j, here) {
+  cancelAnimationFrame(anim); decoPlane?.remove(); decoPlane = null;
+  const warm = css("--warm");
+  let k = 0, best = Infinity;
+  routePts.forEach((p, i) => { const d = kmBetween(here, p); if (d < best) { best = d; k = i; } });
+  const html = `<div style="color:${warm};line-height:0;transform:rotate(${j.track ?? bearing(routePts[k], routePts[Math.min(k + 1, routePts.length - 1)])}deg)">${PLANE_SVG.replace("26", "32").replace("26", "32")}</div>`;
+  const icon = L.divIcon({ className: "live-plane", html, iconSize: [32, 32], iconAnchor: [16, 16] });
+  const tip = `${j.callsign} · ${j.alt_ft === 0 ? "on the ground" : j.alt_ft != null ? j.alt_ft.toLocaleString() + " ft" : ""}${j.speed_kt ? " · " + Math.round(j.speed_kt * 1.15078) + " mph" : ""}`;
+  if (livePlane) { livePlane.setLatLng(here); livePlane.setIcon(icon); livePlane.setTooltipContent(tip); }
+  else livePlane = L.marker(here, { icon, zIndexOffset: 1000 }).bindTooltip(tip, { direction: "top", offset: [0, -14] }).addTo(map);
+  liveTrail?.remove();
+  liveTrail = L.polyline([...routePts.slice(0, k + 1), here], { color: warm, weight: 3, opacity: 0.9 }).addTo(map);
+  const note = $("live-note");
+  if (note) {
+    const age = j.updated > 5 ? ` · position ${j.updated}s old` : "";
+    note.textContent = `Live: ${j.callsign} at ${j.alt_ft != null ? j.alt_ft.toLocaleString() + " ft" : "unknown altitude"}${j.speed_kt ? ", " + Math.round(j.speed_kt * 1.15078) + " mph" : ""}${age}. Updates every 20 seconds.`;
+    note.hidden = false;
+  }
 }
 
 // ---------- About ----------
