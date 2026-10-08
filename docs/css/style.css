@@ -116,3 +116,5 @@ footer { margin-top: 64px; border-top: 1px solid var(--border); padding-top: 16p
 .route-check.faa { margin-top: 16px; border-color: var(--bad); }
 .route-check.faa p { flex: 1 1 100%; }
 .route-check.faa small { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+.route-check[hidden], .hint[hidden] { display: none; }

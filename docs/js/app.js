@@ -708,7 +708,7 @@ function planeDetails(j) {
   const model = j.model ? title(j.model) : j.type;
   if (model) {
     const age = j.year ? new Date().getFullYear() - j.year : null;
-    parts.push(`${model}${j.year ? `, built ${j.year}${age >= 1 ? ` (${age} years old)` : ""}` : ""}${j.operator ? `, operated by ${title(j.operator)}` : ""}.`);
+    parts.push(`${model}${j.year ? `, built ${j.year}${age >= 1 ? ` (${age} years old)` : ""}` : ""}${j.operator ? `, registered to ${title(j.operator)}` : ""}.`);
   }
   if (j.alt_ft === 0) parts.push("On the ground.");
   else if (j.climb_fpm >= 500) parts.push(`Climbing at ${Math.round(j.climb_fpm / 100) * 100} ft/min.`);
