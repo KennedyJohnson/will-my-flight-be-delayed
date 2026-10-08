@@ -701,6 +701,25 @@ async function pollLive() {
   if (!livePlane && note) { note.textContent = "Live position shows here once the flight is in the air."; note.hidden = false; }
 }
 
+
+function planeDetails(j) {
+  const title = (s) => s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase()).replace(/\b(Inc|Llc|Co)\b\.?/g, "").replace(/\bA-(\d)/, "A$1").replace(/\s+/g, " ").trim();
+  const parts = [];
+  const model = j.model ? title(j.model) : j.type;
+  if (model) {
+    const age = j.year ? new Date().getFullYear() - j.year : null;
+    parts.push(`${model}${j.year ? `, built ${j.year}${age >= 1 ? ` (${age} years old)` : ""}` : ""}${j.operator ? `, operated by ${title(j.operator)}` : ""}.`);
+  }
+  if (j.alt_ft === 0) parts.push("On the ground.");
+  else if (j.climb_fpm >= 500) parts.push(`Climbing at ${Math.round(j.climb_fpm / 100) * 100} ft/min.`);
+  else if (j.climb_fpm <= -500) parts.push(`Descending at ${Math.round(-j.climb_fpm / 100) * 100} ft/min.`);
+  else if (j.alt_ft >= 25000) {
+    parts.push(j.target_alt_ft != null && j.target_alt_ft < j.alt_ft - 1500
+      ? `Cruising, and the autopilot is set to descend to ${j.target_alt_ft.toLocaleString()} ft.` : "Cruising level.");
+  }
+  return parts.join(" ");
+}
+
 function drawLive(j, here, inbound = false) {
   cancelAnimationFrame(anim); decoPlane?.remove(); decoPlane = null;
   const warm = css("--warm");
@@ -727,6 +746,8 @@ function drawLive(j, here, inbound = false) {
     note.textContent = `Live: ${j.callsign} at ${j.alt_ft != null ? j.alt_ft.toLocaleString() + " ft" : "unknown altitude"}${j.speed_kt ? ", " + Math.round(j.speed_kt * 1.15078) + " mph" : ""}${age}. Updates every 20 seconds.`;
     note.hidden = false;
   }
+  const det = planeDetails(j), note2 = $("live-note");
+  if (note2 && !note2.hidden && det) { const s = document.createElement("span"); s.textContent = det; note2.append(document.createElement("br"), s); }
 }
 
 // ---------- About ----------
