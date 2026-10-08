@@ -14,7 +14,7 @@ export default {
     if (request.method !== "GET") return json({ error: "method" }, 405, cors);
 
     const url = new URL(request.url);
-    if (url.searchParams.has("callsign")) return position(url.searchParams.get("callsign"), cors);
+    if (url.searchParams.has("callsign")) return position(url.searchParams.get("callsign"), cors, url.searchParams.has("debug"));
     const flight = (url.searchParams.get("flight") ?? "").toUpperCase().replace(/\s+/g, "");
     const date = url.searchParams.get("date") ?? "";
     if (!/^[A-Z0-9]{2}\d{1,4}$/.test(flight) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "bad request" }, 400, cors);
@@ -88,12 +88,14 @@ function withHeaders(res, extra) {
 const FEEDS = [(cs) => `https://api.adsb.lol/v2/callsign/${cs}`, (cs) => `https://opendata.adsb.fi/api/v2/callsign/${cs}`];
 const FEED_UA = "flight-live/1.0 (+https://kennedyjohnson.github.io/will-my-flight-be-delayed/)";
 
-async function position(raw, cors) {
+async function position(raw, cors, debug = false) {
+  const trace = [];
   const callsign = String(raw ?? "").toUpperCase();
   if (!/^[A-Z0-9]{3,8}$/.test(callsign)) return json({ found: false, error: "bad callsign" }, 400, cors);
   for (const feed of FEEDS) {
     try {
       const r = await fetch(feed(callsign), { headers: { "User-Agent": FEED_UA }, cf: { cacheTtl: 15, cacheEverything: true } });
+      trace.push(r.status);
       if (!r.ok) continue;
       const j = await r.json();
       const a = (j.ac ?? j.aircraft ?? []).find((x) => typeof x.lat === "number" && typeof x.lon === "number");
@@ -106,7 +108,7 @@ async function position(raw, cors) {
         callsign: String(a.flight ?? callsign).trim(), type: a.t ?? null,
         updated: Math.max(0, Math.round(a.seen_pos ?? a.seen ?? 0)),
       }, 200, cors, 15);
-    } catch { /* try the next feed */ }
+    } catch (e) { trace.push(String(e).slice(0, 80)); }
   }
-  return json({ found: false }, 200, cors, 15);
+  return json(debug ? { found: false, trace } : { found: false }, 200, cors, 15);
 }
