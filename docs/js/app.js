@@ -653,6 +653,7 @@ async function pollLive() {
       const r = await fetch(`${POS_URL}${POS_URL.includes("?") ? "&" : "?"}callsign=${cs}`);
       const j = await r.json();
       if (ctx !== liveCtx) return;
+      if (j.unavailable) { liveMisses = 99; continue; }
       if (!j.found) continue;
       const here = [j.lat, j.lon];
       const near = Math.min(...routePts.map((p) => kmBetween(here, p)));
@@ -664,6 +665,7 @@ async function pollLive() {
   if (ctx !== liveCtx) return;
   if (++liveMisses >= 12) { clearInterval(liveTimer); liveTimer = null; }
   const note = $("live-note");
+  if (liveMisses >= 99) return; // tracking feed unavailable: stay quiet
   if (!livePlane && note) { note.textContent = "Live position shows here once the flight is in the air."; note.hidden = false; }
 }
 

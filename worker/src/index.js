@@ -110,5 +110,7 @@ async function position(raw, cors, debug = false) {
       }, 200, cors, 15);
     } catch (e) { trace.push(String(e).slice(0, 80)); }
   }
-  return json(debug ? { found: false, trace } : { found: false }, 200, cors, 15);
+  // every feed refused or errored (not just "no such flight"): tell the site so it stays quiet
+  const unavailable = trace.length > 0 && trace.every((t) => typeof t !== "number" || t >= 400) && !trace.includes(200);
+  return json({ found: false, ...(unavailable ? { unavailable: true } : {}), ...(debug ? { trace } : {}) }, 200, cors, 15);
 }
