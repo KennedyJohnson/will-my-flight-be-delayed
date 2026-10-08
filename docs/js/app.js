@@ -413,6 +413,7 @@ async function showLeg(parsed, operator, leg, date, notOnDate) {
   renderWeather(leg, oWx, dWx, date, arrDate);
   renderMap(leg);
   startLive(parsed, operator, leg, date);
+  showFaa(leg, date);
   $("result").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -611,6 +612,27 @@ function renderMap(leg) {
     anim = requestAnimationFrame(step);
   };
   anim = requestAnimationFrame(step);
+}
+
+// ---------- FAA airport delays (relayed by the Vercel function; the FAA feed has no CORS headers) ----------
+async function showFaa(leg, date) {
+  const box = $("faa"); box.hidden = true;
+  const today = isoDate(new Date());
+  if (date < addDays(today, -1) || date > addDays(today, 1)) return; // the FAA feed is "right now" only
+  try {
+    const base = (typeof POS_URL !== "undefined" ? POS_URL : "").replace(/\/api\/position.*$/, "");
+    if (!base) return;
+    const j = await (await fetch(`${base}/api/faa?airports=${leg.o},${leg.d}`, { signal: AbortSignal.timeout(8000) })).json();
+    if (!j.delays?.length) return;
+    const name = (c) => airports[c]?.city ?? c;
+    const lines = j.delays.map((d) => {
+      const where = `${name(d.airport)} (${d.airport})`;
+      const trend = d.trend === "increasing" ? ", and getting longer" : d.trend === "decreasing" ? ", but easing" : "";
+      return `<b>${where}:</b> ${d.text}${trend}${d.reason ? ` (${d.reason})` : ""}.`;
+    });
+    $("faa-text").innerHTML = `<b>FAA airport status right now</b><br>${lines.join("<br>")}<small>From the FAA's live airport status feed. This is today's situation at the airport and is not part of the model's estimate below.</small>`;
+    box.hidden = false;
+  } catch { /* FAA feed unavailable: show nothing */ }
 }
 
 // ---------- Live aircraft position ----------
