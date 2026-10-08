@@ -47,3 +47,11 @@ cd pipeline && python scorecard.py && python train.py && python check_metrics.py
 ## Limitations
 
 Flight schedules come from flights operated in the 8 weeks before the latest BTS release, so new or changed flights may be missing. It can't see day-of issues like ATC ground stops, crew or mechanical problems.
+
+## Tools used
+
+- Python
+- LightGBM
+- SHAP
+- Leaflet
+- JavaScript
