@@ -414,6 +414,7 @@ async function showLeg(parsed, operator, leg, date, notOnDate) {
   renderMap(leg);
   startLive(parsed, operator, leg, date);
   showFaa(leg, date);
+  showInbound(leg, date);
   $("result").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -748,6 +749,93 @@ function drawLive(j, here, inbound = false) {
   }
   const det = planeDetails(j), note2 = $("live-note");
   if (note2 && !note2.hidden && det) { const s = document.createElement("span"); s.textContent = det; note2.append(document.createElement("br"), s); }
+}
+
+// ---------- Inbound aircraft ----------
+// The plane flying this departure is the one that just flew in from leg.inb (the schedule data's inbound origin).
+// Its live position comes from the tail number; lateness = estimated ETA at the departure airport versus the
+// scheduled arrival (departure time minus this flight's usual turn time). Times use the airport's local clock,
+// approximated from its state, so minute-level numbers are estimates.
+const STATE_TZ = { AK: "America/Anchorage", HI: "Pacific/Honolulu", AZ: "America/Phoenix", CA: "America/Los_Angeles",
+  NV: "America/Los_Angeles", OR: "America/Los_Angeles", WA: "America/Los_Angeles", CO: "America/Denver", NM: "America/Denver",
+  UT: "America/Denver", WY: "America/Denver", MT: "America/Denver", ID: "America/Denver", TX: "America/Chicago",
+  KS: "America/Chicago", NE: "America/Chicago", SD: "America/Chicago", ND: "America/Chicago", OK: "America/Chicago",
+  MN: "America/Chicago", IA: "America/Chicago", MO: "America/Chicago", AR: "America/Chicago", LA: "America/Chicago",
+  MS: "America/Chicago", AL: "America/Chicago", IL: "America/Chicago", WI: "America/Chicago", TN: "America/New_York",
+  KY: "America/New_York", MI: "America/New_York", IN: "America/New_York", FL: "America/New_York" };
+// States split by a time-zone line: airports west of the longitude use the second zone.
+const SPLIT_TZ = { TX: [-106.5, "America/Denver"], KS: [-101, "America/Denver"], NE: [-102, "America/Denver"],
+  SD: [-101.5, "America/Denver"], ND: [-101, "America/Denver"], ID: [-116.6, "America/Los_Angeles"],
+  FL: [-85, "America/Chicago"], TN: [-85.5, "America/Chicago"], KY: [-87.2, "America/Chicago"],
+  MI: [-87, "America/Chicago"], IN: [-87, "America/Chicago"] };
+function airportTz(code) {
+  const a = airports[code];
+  if (!a) return null;
+  const split = SPLIT_TZ[a.region];
+  if (split && a.lon < split[0]) return split[1];
+  return STATE_TZ[a.region] ?? null;
+}
+function localMinutes(tz) {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "numeric", hourCycle: "h23" }).formatToParts(new Date());
+  const get = (t) => Number(parts.find((p) => p.type === t).value);
+  return (get("hour") % 24) * 60 + get("minute");
+}
+
+let inboundTimer = null, inboundToken = null;
+
+function hideInbound() {
+  clearInterval(inboundTimer); inboundTimer = null; inboundToken = null;
+  const box = $("inbound"); if (box) box.hidden = true;
+}
+
+function renderInbound(leg, date, j) {
+  const o = airports[leg.o], inb = airports[leg.inb];
+  if (!j?.found || j.lat == null || j.lon == null || !o || !inb) return false;
+  const here = [j.lat, j.lon];
+  const route = greatCircle([inb.lat, inb.lon], [o.lat, o.lon]);
+  if (Math.min(...route.map((p) => kmBetween(here, p))) > 500) return false; // this tail is flying another leg
+  const mi = Math.round(kmBetween(here, [o.lat, o.lon]) * 0.621371);
+  const mph = j.speed_kt ? Math.round(j.speed_kt * 1.15078) : 0;
+  const landed = j.alt_ft === 0 && kmBetween(here, [o.lat, o.lon]) < 20;
+  const from = inb.city ?? leg.inb;
+  const lines = [`Inbound plane ${leg.reg} is coming from ${from} (${leg.inb}).`];
+  if (landed) lines.push(`It has already landed at ${leg.o}.`);
+  else lines.push(mph > 100 ? `It is ${mi.toLocaleString()} miles out, flying ${mph} mph.` : `It is ${mi.toLocaleString()} miles out.`);
+  const tz = airportTz(leg.o);
+  if (!landed && mph > 100 && tz && leg.turn != null && date === isoDate(new Date())) {
+    const sched = hhmmToMin(leg.dep) - Math.round(leg.turn);
+    const diff = ((((sched - localMinutes(tz)) + 720) % 1440) + 1440) % 1440 - 720; // minutes until scheduled arrival (negative = already due)
+    const late = Math.round(mi / mph * 60 - diff);
+    if (late >= 5) lines.push(`The inbound plane is about ${late} min late.`);
+    else if (late <= -5) lines.push(`The inbound plane is about ${-late} min early.`);
+    else lines.push("The inbound plane is on schedule.");
+    lines.push("Scheduled arrival is estimated from this flight's usual turn time, so the minutes are approximate.");
+  }
+  $("inbound-text").textContent = lines.join(" ");
+  $("inbound").hidden = false;
+  return landed ? "done" : "live"; // "done": already on the ground at the departure airport, nothing left to track
+}
+
+async function showInbound(leg, date) {
+  hideInbound();
+  const reg = TEST_REG || leg.reg;
+  const today = isoDate(new Date());
+  if (!reg || !POS_URL || !leg.inb || leg.inb === "Overnight" || date < addDays(today, -1) || date > addDays(today, 1)) return;
+  const token = (inboundToken = {});
+  const poll = async () => {
+    if (document.hidden) return;
+    try {
+      const r = await fetch(`${POS_URL}${POS_URL.includes("?") ? "&" : "?"}reg=${encodeURIComponent(reg)}`, { signal: AbortSignal.timeout(8000) });
+      const j = await r.json();
+      if (token !== inboundToken) return;
+      const state = renderInbound(leg, date, j);
+      if (!state) { hideInbound(); return null; }
+      if (state === "done") { clearInterval(inboundTimer); inboundTimer = null; }
+      return state;
+    } catch { if (token === inboundToken) hideInbound(); return null; } // feed unavailable or no data: show nothing
+  };
+  const state = await poll();
+  if (state === "live" && token === inboundToken) inboundTimer = setInterval(poll, 60000);
 }
 
 // ---------- About ----------
