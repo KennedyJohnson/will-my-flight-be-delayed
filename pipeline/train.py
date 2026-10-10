@@ -30,7 +30,8 @@ if SMOKE:
     raw = raw.sample(300_000, random_state=0); RAW = ROOT / "raw" / "smoke"; RAW.mkdir(exist_ok=True); REPORT = RAW
     PARAMS["learning_rate"] = 0.3
 df = F.base_features(raw)
-df = F.add_weather(df, F.load_weather())
+WX_SRC = os.environ.get("WX_SRC", "weather")  # "weather_fc" = train on forecasts (serving parity)
+df = F.add_weather(df, F.load_weather(WX_SRC))
 df.to_parquet(RAW / "features_base.parquet", index=False)
 print("rows", len(df), "weather coverage", round(df["o_temperature_2m"].notna().mean(), 3))
 

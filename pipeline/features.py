@@ -111,9 +111,10 @@ def base_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def load_weather() -> pd.DataFrame:
+def load_weather(src: str = "weather") -> pd.DataFrame:
+    """src: raw/ subdirectory written by 02_weather.py ("weather" = archive, "weather_fc" = forecast)."""
     frames = []
-    for p in (RAW / "weather").glob("*.parquet"):
+    for p in (RAW / src).glob("*.parquet"):
         w = pd.read_parquet(p)
         w["airport"] = p.stem
         frames.append(w)

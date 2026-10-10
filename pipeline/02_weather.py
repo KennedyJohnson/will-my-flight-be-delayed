@@ -1,4 +1,11 @@
-"""Download hourly historical weather (Open-Meteo archive, local time) for every airport in the data."""
+"""Download hourly historical weather (Open-Meteo, local time) for every airport in the data.
+
+Default: observed weather from the archive API (raw/weather/). With --forecast: the Historical
+Forecast API, i.e. the forecast Open-Meteo issued for each day, which matches what the live site
+(docs/js/app.js, api.open-meteo.com/v1/forecast) shows users (raw/weather_fc/). Train on the
+forecast version so model inputs have the same error profile as serving inputs.
+"""
+import sys
 import time
 from pathlib import Path
 
@@ -7,7 +14,10 @@ import requests
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "raw"
-OUT = RAW / "weather"
+FORECAST = "--forecast" in sys.argv
+OUT = RAW / ("weather_fc" if FORECAST else "weather")
+URL = ("https://historical-forecast-api.open-meteo.com/v1/forecast" if FORECAST
+       else "https://archive-api.open-meteo.com/v1/archive")
 OUT.mkdir(exist_ok=True)
 
 WX_VARS = ["temperature_2m", "precipitation", "snowfall", "wind_speed_10m",
@@ -29,7 +39,7 @@ for code, row in ap.iterrows():
                   hourly=",".join(WX_VARS), timezone="auto", wind_speed_unit="mph",
                   temperature_unit="fahrenheit", precipitation_unit="inch")
     while True:  # wait out Open-Meteo hourly/daily limits
-        r = requests.get("https://archive-api.open-meteo.com/v1/archive", params=params, timeout=60)
+        r = requests.get(URL, params=params, timeout=60)
         if r.status_code == 429:
             time.sleep(60)
             continue
