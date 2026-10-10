@@ -20,7 +20,7 @@ Enter a US domestic flight number and date to get the chance it arrives 15+ minu
 | Model, no weather | 0.691 | 0.194 |
 | **Model, with weather** | **0.731** | **0.182** |
 
-The deployed model is refit on all 12 months. It runs entirely in the browser: trees are exported to JSON and evaluated in `docs/js/model.js`, with per-prediction feature attributions from the tree paths.
+The deployed model is refit on all 24 months. It runs entirely in the browser: trees are exported to JSON and evaluated in `docs/js/model.js`, with per-prediction feature attributions from the tree paths.
 
 ![SHAP importance](docs/img/shap_bar.png)
 
@@ -38,7 +38,7 @@ If live AUC falls more than 0.03 below validation AUC, the workflow opens an iss
 
 ```bash
 pip install -r requirements.txt
-python pipeline/00_download.py   # rolling 12 months of BTS + airports + FAA registry
+python pipeline/00_download.py   # rolling 24 months of BTS + airports + FAA registry
 python pipeline/01_load.py
 python pipeline/02_weather.py
 cd pipeline && python scorecard.py && python train.py && python check_metrics.py && python export.py

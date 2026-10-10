@@ -1,4 +1,4 @@
-"""Fetch a rolling 12 months of BTS On-Time zips plus OurAirports and FAA registry into raw/.
+"""Fetch a rolling 24 months of BTS On-Time zips plus OurAirports and FAA registry into raw/.
 
 Prints the latest BTS month (YYYY-MM). With --check, only prints it (no downloads)."""
 import io
@@ -12,7 +12,7 @@ import requests
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "raw"
 RAW.mkdir(exist_ok=True)
-MONTHS = 12
+MONTHS = 24
 BTS = "https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_{y}_{m}.zip"
 AIRPORTS = "https://davidmegginson.github.io/ourairports-data/airports.csv"
 FAA = "https://registry.faa.gov/database/ReleasableAircraft.zip"
