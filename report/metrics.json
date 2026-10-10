@@ -2,84 +2,84 @@
   "results": {
     "baseline_overall_rate": {
       "auc": 0.5,
-      "logloss": 0.6113,
-      "brier": 0.2093
+      "logloss": 0.6132,
+      "brier": 0.2099
     },
     "baseline_carrier_rate": {
-      "auc": 0.5559,
-      "logloss": 0.6084,
-      "brier": 0.2081
+      "auc": 0.539,
+      "logloss": 0.6105,
+      "brier": 0.2088
     },
     "baseline_flight_rate": {
-      "auc": 0.6184,
-      "logloss": 0.5942,
-      "brier": 0.2028
+      "auc": 0.6197,
+      "logloss": 0.5935,
+      "brier": 0.2024
     },
     "all_features": {
-      "auc": 0.7304,
-      "logloss": 0.544,
-      "brier": 0.1822
+      "auc": 0.7344,
+      "logloss": 0.5332,
+      "brier": 0.1779
     },
     "selected_features": {
-      "auc": 0.7311,
-      "logloss": 0.5435,
-      "brier": 0.1819
+      "auc": 0.7338,
+      "logloss": 0.5329,
+      "brier": 0.1778
     },
     "selected_no_weather": {
-      "auc": 0.6909,
-      "logloss": 0.5727,
-      "brier": 0.194
+      "auc": 0.6894,
+      "logloss": 0.5592,
+      "brier": 0.1893
     },
     "calibration": [
       {
-        "pred": 0.0721,
-        "actual": 0.0936,
-        "n": 240514
+        "pred": 0.0724,
+        "actual": 0.0849,
+        "n": 197231
       },
       {
-        "pred": 0.1469,
-        "actual": 0.197,
-        "n": 428339
+        "pred": 0.1478,
+        "actual": 0.1733,
+        "n": 380375
       },
       {
-        "pred": 0.2456,
-        "actual": 0.3332,
-        "n": 261396
+        "pred": 0.2467,
+        "actual": 0.2906,
+        "n": 265721
       },
       {
-        "pred": 0.3454,
-        "actual": 0.4519,
-        "n": 151287
+        "pred": 0.3464,
+        "actual": 0.4082,
+        "n": 176504
       },
       {
-        "pred": 0.4448,
-        "actual": 0.5535,
-        "n": 83431
+        "pred": 0.4458,
+        "actual": 0.5066,
+        "n": 109252
       },
       {
-        "pred": 0.5443,
-        "actual": 0.634,
-        "n": 43513
+        "pred": 0.5448,
+        "actual": 0.5983,
+        "n": 61148
       },
       {
-        "pred": 0.643,
-        "actual": 0.7025,
-        "n": 20087
+        "pred": 0.644,
+        "actual": 0.6784,
+        "n": 30766
       },
       {
-        "pred": 0.7424,
-        "actual": 0.7696,
-        "n": 8375
+        "pred": 0.7421,
+        "actual": 0.7469,
+        "n": 13364
       },
       {
-        "pred": 0.8326,
-        "actual": 0.8092,
-        "n": 2558
+        "pred": 0.8394,
+        "actual": 0.7889,
+        "n": 4624
       },
       {
-        "pred": 0.9106,
-        "actual": 0.8723,
-        "n": 47
+        "pred": 0.9209,
+        "actual": 0.7509,
+        "n": 562
       }
     ]
   },
@@ -94,7 +94,6 @@
     "turnaround",
     "aircraft_age",
     "seats",
-    "regional",
     "days_to_holiday",
     "origin_hour_volume",
     "dest_hour_volume",
@@ -127,60 +126,60 @@
     "d_precipitation_day"
   ],
   "dropped": [
+    "regional",
     "o_snowfall",
     "d_snowfall",
     "d_snowfall_day"
   ],
-  "best_iter": 520,
-  "prior": 0.24004501510393877,
+  "best_iter": 1303,
+  "prior": 0.2299437841273055,
   "shap_importance": {
-    "flight_rate": 0.2379,
-    "origin_hour_rate": 0.1797,
-    "d_precipitation_day": 0.12789,
-    "o_precipitation_day": 0.12535,
-    "dep_hour": 0.12453,
-    "dow": 0.11862,
-    "days_to_holiday": 0.10826,
-    "month": 0.07755,
-    "arr_hour": 0.07616,
-    "origin_rate": 0.07604,
-    "crs_elapsed": 0.07585,
-    "distance": 0.07294,
-    "dest_hour_volume": 0.066,
-    "turnaround": 0.0629,
-    "carrier_dest_rate": 0.05375,
-    "route_rate": 0.0528,
-    "origin_hour_volume": 0.05014,
-    "carrier_origin_rate": 0.04829,
-    "o_wind_gusts_10m": 0.03808,
-    "carrier_rate": 0.03484,
-    "d_temperature_2m": 0.03479,
-    "d_wind_gusts_10m": 0.03268,
-    "o_temperature_2m": 0.03149,
-    "leg_index": 0.02914,
-    "dest_rate": 0.02544,
-    "d_cloud_cover": 0.02464,
-    "aircraft_rate": 0.02423,
-    "d_cloud_cover_low": 0.02405,
-    "o_precipitation": 0.02345,
-    "o_cloud_cover": 0.02296,
-    "o_cloud_cover_low": 0.02226,
-    "o_weather_code": 0.02119,
-    "o_wind_speed_10m": 0.0204,
-    "seats": 0.01774,
-    "d_precipitation": 0.01774,
-    "d_weather_code": 0.01524,
-    "d_wind_speed_10m": 0.01471,
-    "inbound_rate": 0.01313,
-    "aircraft_age": 0.01225,
-    "o_snowfall_day": 0.01144,
-    "regional": 0.00597
+    "flight_rate": 0.22884,
+    "origin_hour_rate": 0.21014,
+    "crs_elapsed": 0.14792,
+    "month": 0.14561,
+    "distance": 0.14271,
+    "d_precipitation_day": 0.12512,
+    "dow": 0.10963,
+    "o_precipitation_day": 0.10853,
+    "arr_hour": 0.10234,
+    "days_to_holiday": 0.10118,
+    "dep_hour": 0.09883,
+    "turnaround": 0.08931,
+    "dest_hour_volume": 0.07411,
+    "origin_rate": 0.06066,
+    "carrier_dest_rate": 0.05544,
+    "leg_index": 0.05544,
+    "carrier_origin_rate": 0.05437,
+    "origin_hour_volume": 0.05268,
+    "route_rate": 0.05019,
+    "o_wind_gusts_10m": 0.04353,
+    "d_temperature_2m": 0.03942,
+    "d_wind_gusts_10m": 0.03649,
+    "carrier_rate": 0.0347,
+    "o_temperature_2m": 0.03452,
+    "d_cloud_cover_low": 0.03026,
+    "o_cloud_cover_low": 0.02807,
+    "o_cloud_cover": 0.02714,
+    "dest_rate": 0.02613,
+    "d_cloud_cover": 0.02348,
+    "o_wind_speed_10m": 0.0219,
+    "o_precipitation": 0.02087,
+    "seats": 0.01975,
+    "aircraft_rate": 0.01836,
+    "d_wind_speed_10m": 0.01737,
+    "d_precipitation": 0.01686,
+    "o_weather_code": 0.01642,
+    "d_weather_code": 0.01481,
+    "inbound_rate": 0.01314,
+    "aircraft_age": 0.01313,
+    "o_snowfall_day": 0.00602
   },
   "train_period": [
-    "2025-08-01",
+    "2024-08-01",
     "2026-07-31"
   ],
-  "n_flights": 7043858,
+  "n_flights": 14105091,
   "validation_period": [
     "2026-06-01",
     "2026-07-31"

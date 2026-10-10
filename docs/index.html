@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Will My Flight Be Delayed?</title>
-<meta name="description" content="The chance a US domestic flight arrives 15+ minutes late, from a model trained on a year of flights plus live weather forecasts.">
+<meta name="description" content="The chance a US domestic flight arrives 15+ minutes late, from a model trained on two years of flights plus live weather forecasts.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -14,7 +14,7 @@
 <main>
   <div class="eyebrow">US domestic flights</div>
   <h1>Will my flight be delayed?</h1>
-  <p class="lede">Enter your flight number and travel date to see the chance it arrives 15 or more minutes late, based on a year of flight records and the weather forecast at both airports.</p>
+  <p class="lede">Enter your flight number and travel date to see the chance it arrives 15 or more minutes late, based on two years of flight records and the weather forecast at both airports.</p>
 
   <div class="modes" role="tablist">
     <button type="button" class="btn active" id="mode-num" role="tab">Flight number</button>
@@ -86,7 +86,7 @@
     <details class="card">
       <summary><b>How we did this, and how accurate it is</b></summary>
       <ul class="list">
-        <li>We used every domestic flight reported to the U.S. Bureau of Transportation Statistics over the past year. A flight counts as <b>delayed</b> if it arrived 15+ minutes late, was cancelled, or was diverted.</li>
+        <li>We used every domestic flight reported to the U.S. Bureau of Transportation Statistics over the past two years. A flight counts as <b>delayed</b> if it arrived 15+ minutes late, was cancelled, or was diverted.</li>
         <li>The model is a gradient-boosted tree ensemble (LightGBM). It looks at how often the airline, both airports, the route and this exact flight number have run late, plus time of day, day of week, month, how busy each airport is at that hour, and how close the date is to a major holiday.</li>
         <li><b>The plane itself matters.</b> Late-arriving aircraft are the single biggest cause of delays in federal data, so the model looks at how late in the plane's day the flight usually runs, where the plane usually flies in from, and how much time is scheduled to turn it around. It also uses the aircraft type, age and size from the FAA aircraft registry, and whether a regional airline operates the flight for a major brand.</li>
         <li>It also looks at hourly weather at both ends: temperature, rain, snow, wind, gusts and cloud cover. Historical weather came from Open-Meteo's archive; your flight uses the live forecast.</li>

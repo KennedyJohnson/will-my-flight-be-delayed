@@ -3,7 +3,7 @@
 Static GitHub Pages site (`docs/`, served from main) predicting P(arrival 15+ min late, or cancelled/diverted) for a US domestic flight. LightGBM model trained in Python, flattened to JSON, evaluated in the browser. No backend.
 
 ## Pipeline (`pipeline/`, run in order; `raw/` is gitignored, ~1 GB)
-- `00_download.py` - rolling 12 months of BTS On-Time zips (`raw/YYYY_M.zip`), OurAirports `airports.csv`, FAA registry → `raw/faa/{MASTER,ACFTREF}.txt`. `--check` prints latest BTS month only. FAA needs a browser User-Agent (503s otherwise).
+- `00_download.py` - rolling 24 months of BTS On-Time zips (`raw/YYYY_M.zip`), OurAirports `airports.csv`, FAA registry → `raw/faa/{MASTER,ACFTREF}.txt`. `--check` prints latest BTS month only. FAA needs a browser User-Agent (503s otherwise).
 - `01_load.py` → `raw/flights.parquet` (target `delayed`).
 - `02_weather.py` - Open-Meteo archive hourly weather per airport → `raw/weather/<IATA>.parquet`. Skips existing files, so delete `raw/weather` when the date window changes.
 - `features.py` - shared feature code (turn time, holidays, aircraft age/type, weather join, target encoding).

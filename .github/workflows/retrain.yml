@@ -1,7 +1,7 @@
 name: Monthly retrain
 
 # BTS publishes a new month ~2-3 months after the fact. Checks weekly; retrains only when a
-# new month appears (or on manual run with force), keeping a rolling 12-month window.
+# new month appears (or on manual run with force), keeping a rolling 24-month window.
 on:
   schedule:
     - cron: "0 9 * * 1"

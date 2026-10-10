@@ -36,6 +36,10 @@ for zp in sorted(glob.glob(str(RAW / "20*.zip"))):
 
 df = pd.concat(frames, ignore_index=True)
 df["date"] = pd.to_datetime(df["date"])
+# A single missing flight number makes the column float, so flight keys became "2919.0" and
+# lookups for "2919" silently failed once more than 12 months were loaded.
+df = df.dropna(subset=["flight_num"]).reset_index(drop=True)
+df["flight_num"] = df["flight_num"].astype("int32")
 for c in ["carrier", "origin", "dest", "tail"]:
     df[c] = df[c].astype("category")
 # Target: arrived 15+ min late, or cancelled/diverted (all count as "delayed" to a traveler)
