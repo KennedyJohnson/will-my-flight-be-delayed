@@ -1,7 +1,7 @@
 import { DelayModel } from "./model.js";
 
 const WX_VARS = ["temperature_2m", "precipitation", "snowfall", "wind_speed_10m",
-  "wind_gusts_10m", "cloud_cover", "cloud_cover_low", "weather_code"];
+  "wind_gusts_10m", "cloud_cover", "cloud_cover_low", "weather_code", "visibility"];
 // Regional carriers that fly under a mainline brand's flight numbers
 const PARTNERS = {
   AA: ["MQ", "OH", "YX", "PT", "ZW"], DL: ["9E", "OO", "YX"], UA: ["OO", "YX", "ZW", "G7", "C5"],
@@ -28,7 +28,7 @@ const WX_LABELS = {
   temperature_2m: "temperature", precipitation: "precipitation", snowfall: "snowfall",
   wind_speed_10m: "wind", wind_gusts_10m: "wind gusts", cloud_cover: "cloud cover",
   cloud_cover_low: "low clouds", weather_code: "conditions", precipitation_day: "daily precipitation",
-  snowfall_day: "daily snowfall",
+  snowfall_day: "daily snowfall", visibility: "visibility",
 };
 const WMO = {
   0: ["Clear", "☀️"], 1: ["Mostly clear", "🌤️"], 2: ["Partly cloudy", "⛅"], 3: ["Overcast", "☁️"],
@@ -503,6 +503,7 @@ function fmtValue(feature, v) {
   if (k === "temperature_2m") return `${Math.round(v)}°F`;
   if (k.startsWith("wind")) return `${Math.round(v)} mph`;
   if (k.startsWith("cloud")) return `${Math.round(v)}%`;
+  if (k === "visibility") return `${(v / 5280).toFixed(1)} mi`;  // Open-Meteo sends feet with imperial units
   if (k.startsWith("precip") || k.startsWith("snow")) return `${v.toFixed(2)} in`;
   return String(v);
 }
@@ -525,6 +526,7 @@ function wxCard(where, code, wx, time) {
     <div class="t">${(WMO[wx.weather_code] ?? [])[1] ?? ""} ${Math.round(wx.temperature_2m)}°F, ${desc.toLowerCase()}</div>
     <ul><li>Wind ${Math.round(wx.wind_speed_10m)} mph, gusts ${Math.round(wx.wind_gusts_10m)} mph</li>
     <li>Cloud cover ${Math.round(wx.cloud_cover)}% (low clouds ${Math.round(wx.cloud_cover_low)}%)</li>
+    ${wx.visibility != null ? `<li>Visibility ${(wx.visibility / 5280).toFixed(1)} mi</li>` : ""}
     <li>Precipitation ${wx.precipitation.toFixed(2)} in that hour, ${wx.precipitation_day.toFixed(2)} in that day</li>
     ${wx.snowfall_day > 0 ? `<li>Snow ${wx.snowfall_day.toFixed(1)} in that day</li>` : ""}</ul></div>`;
 }

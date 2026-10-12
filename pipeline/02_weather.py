@@ -21,7 +21,7 @@ URL = ("https://historical-forecast-api.open-meteo.com/v1/forecast" if FORECAST
 OUT.mkdir(exist_ok=True)
 
 WX_VARS = ["temperature_2m", "precipitation", "snowfall", "wind_speed_10m",
-           "wind_gusts_10m", "cloud_cover", "cloud_cover_low", "weather_code"]
+           "wind_gusts_10m", "cloud_cover", "cloud_cover_low", "weather_code", "visibility"]
 
 flights = pd.read_parquet(RAW / "flights.parquet", columns=["date", "origin", "dest"])
 start, end = flights["date"].min().date(), flights["date"].max().date()

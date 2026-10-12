@@ -57,13 +57,15 @@ jobs:
         run: python pipeline/01_load.py
       - name: Fetch weather
         if: steps.check.outputs.run == 'true'
-        run: python pipeline/02_weather.py
+        run: python pipeline/02_weather.py --forecast
       # Before retraining overwrites docs/data: score the model the site has been serving on the
       # newly released month(s), which it never saw. Doesn't block the retrain if it fails.
       - name: Live scorecard for the published model
         if: steps.check.outputs.run == 'true'
         continue-on-error: true
         working-directory: pipeline
+        env:
+          WX_SRC: weather_fc
         run: python scorecard.py
       - name: Open an issue if live accuracy drifted
         if: steps.check.outputs.run == 'true' && hashFiles('raw/drift.txt') != ''
@@ -81,6 +83,8 @@ jobs:
       - name: Train
         if: steps.check.outputs.run == 'true'
         working-directory: pipeline
+        env:
+          WX_SRC: weather_fc
         run: python train.py
       - name: Accuracy gate
         if: steps.check.outputs.run == 'true'

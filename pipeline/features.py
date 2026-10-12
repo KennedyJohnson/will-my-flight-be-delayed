@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "raw"
 
 WX_VARS = ["temperature_2m", "precipitation", "snowfall", "wind_speed_10m",
-           "wind_gusts_10m", "cloud_cover", "cloud_cover_low", "weather_code"]
+           "wind_gusts_10m", "cloud_cover", "cloud_cover_low", "weather_code", "visibility"]
 TE_KEYS = {
     "carrier_rate": ["carrier"],
     "origin_rate": ["origin"],

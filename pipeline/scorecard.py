@@ -11,6 +11,7 @@ Appends one row per month to docs/data/scorecard.json (re-running a month replac
 raw/drift.txt if a month's AUC falls more than DRIFT_AUC below the published validation AUC.
 """
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -126,8 +127,9 @@ def main():
     for col in ["carrier", "origin", "dest"]:
         new[col] = new[col].astype(str)
     new = new.merge(schedule_table(), on=["carrier", "flight_num", "origin", "dest"], how="inner")
-    if (RAW / "weather").exists() and any((RAW / "weather").glob("*.parquet")):
-        new = F.add_weather(new, F.load_weather())
+    wx = os.environ.get("WX_SRC", "weather")
+    if (RAW / wx).exists() and any((RAW / wx).glob("*.parquet")):
+        new = F.add_weather(new, F.load_weather(wx))
 
     model = TreeModel(json.loads((DATA / "model.json").read_text()))
     X = site_features(new, json.loads((DATA / "stats.json").read_text()))
