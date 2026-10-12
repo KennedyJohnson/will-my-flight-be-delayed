@@ -6,7 +6,7 @@ Enter a US domestic flight number and date to get the chance it arrives 15+ minu
 
 ## Model
 
-- **Data:** 7.0M flights from the BTS Reporting Carrier On-Time Performance data (Aug 2025 – Jul 2026), hourly historical weather at each airport from Open-Meteo, and aircraft type/age from the FAA aircraft registry.
+- **Data:** 7.0M flights from the BTS Reporting Carrier On-Time Performance data (Aug 2025 – Jul 2026), hourly forecast weather at each airport from Open-Meteo's Historical Forecast API (what the forecast said at the time, matching what the site shows users), including visibility, and aircraft type/age from the FAA aircraft registry.
 - **Features:** historical delay rates (target-encoded out-of-fold) for the airline, airports, route, flight number, aircraft type and inbound airport; departure/arrival hour, day of week, month, days to a major holiday; airport congestion; the plane's typical leg of the day and scheduled turnaround; regional vs mainline operator; and weather at both ends.
 - **Algorithm:** LightGBM, with weather randomly withheld from 15% of training rows so it also works beyond the 16-day forecast window.
 - **Feature selection:** SHAP (TreeExplainer) ranks features; ones below 2% of the top feature's mean |SHAP| are dropped if that doesn't hurt validation log loss.
@@ -32,7 +32,7 @@ A validation split only says how the model *should* do. So when BTS releases a n
 - Predicted vs actual delay rate, plus a calibration table.
 - Coverage, meaning the share of flights the site could have looked up.
 
-If live AUC falls more than 0.03 below validation AUC, the workflow opens an issue. One caveat: the scorecard uses archived weather, while users get forecasts, so its weather inputs are a best case.
+If live AUC falls more than 0.03 below validation AUC, the workflow opens an issue. The scorecard uses the same historical forecast weather as training, so its weather inputs match what users saw.
 
 ## Reproduce
 

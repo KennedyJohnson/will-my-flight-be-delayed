@@ -4,8 +4,8 @@ Run after 01_load/02_weather and BEFORE train/export, while docs/data still hold
 Every flight dated after the published model's training window is one it never saw. Each flight is scored
 exactly the way the site would have scored it: the published tree dump, stats tables and schedule entry,
 evaluated with a port of docs/js/model.js. Flights the site couldn't look up (not in the published schedule) are
-skipped and counted in `coverage`. Weather comes from the Open-Meteo archive (what happened), while the site uses
-forecasts, so this is a best case for the weather inputs.
+skipped and counted in `coverage`. Weather comes from WX_SRC (the workflow uses weather_fc: Open-Meteo historical
+forecasts, the same kind of input the site gets).
 
 Appends one row per month to docs/data/scorecard.json (re-running a month replaces its row). Writes
 raw/drift.txt if a month's AUC falls more than DRIFT_AUC below the published validation AUC.

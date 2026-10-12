@@ -5,7 +5,7 @@ Static GitHub Pages site (`docs/`, served from main) predicting P(arrival 15+ mi
 ## Pipeline (`pipeline/`, run in order; `raw/` is gitignored, ~1 GB)
 - `00_download.py` - rolling 24 months of BTS On-Time zips (`raw/YYYY_M.zip`), OurAirports `airports.csv`, FAA registry → `raw/faa/{MASTER,ACFTREF}.txt`. `--check` prints latest BTS month only. FAA needs a browser User-Agent (503s otherwise).
 - `01_load.py` → `raw/flights.parquet` (target `delayed`).
-- `02_weather.py` - Open-Meteo archive hourly weather per airport → `raw/weather/<IATA>.parquet`. Skips existing files, so delete `raw/weather` when the date window changes.
+- `02_weather.py` - Open-Meteo hourly weather per airport (incl. visibility, in feet). Workflow runs `--forecast` (Historical Forecast API → `raw/weather_fc/`) and trains/scores with `WX_SRC=weather_fc` so training matches the forecasts the site serves; without the flag it uses the archive → `raw/weather/` (no visibility there). Skips existing files, so delete the folder when the date window changes.
 - `features.py` - shared feature code (turn time, holidays, aircraft age/type, weather join, target encoding).
 - `train.py` (run from `pipeline/`) - validates on last 2 months (derived from data), SHAP feature pruning, final model on all data → `raw/model.txt`, `report/metrics.json` + SHAP pngs. `SMOKE=1` = fast 300k-row run into `raw/smoke`.
 - `scorecard.py` (from `pipeline/`, BEFORE train/export) - scores the *published* model (`docs/data/model.json` + stats + schedules, Python port of `model.js`) on flights after its training window → appends to `docs/data/scorecard.json`; writes `raw/drift.txt` if live AUC < validation AUC - 0.03 (workflow opens an issue).
