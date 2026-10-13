@@ -38,11 +38,21 @@ for code, row in ap.iterrows():
     params = dict(latitude=row.latitude_deg, longitude=row.longitude_deg, start_date=start, end_date=end,
                   hourly=",".join(WX_VARS), timezone="auto", wind_speed_unit="mph",
                   temperature_unit="fahrenheit", precipitation_unit="inch")
-    while True:  # wait out Open-Meteo hourly/daily limits
-        r = requests.get(URL, params=params, timeout=60)
-        if r.status_code == 429:
+    fails = 0
+    while True:  # wait out Open-Meteo hourly/daily limits (429); retry slow responses and 5xx up to 5 times
+        try:
+            r = requests.get(URL, params=params, timeout=180)
+        except (requests.Timeout, requests.ConnectionError):
+            r = None
+        if r is not None and r.status_code == 429:
             time.sleep(60)
             continue
+        if (r is None or r.status_code >= 500) and fails < 5:
+            fails += 1
+            time.sleep(60)
+            continue
+        if r is None:
+            raise RuntimeError(f"Open-Meteo unreachable for {code} after {fails} retries")
         r.raise_for_status()
         break
     h = pd.DataFrame(r.json()["hourly"])
