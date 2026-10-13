@@ -3,6 +3,7 @@
 Prints the latest BTS month (YYYY-MM). With --check, only prints it (no downloads)."""
 import io
 import sys
+import time
 import zipfile
 from datetime import date
 from pathlib import Path
@@ -35,12 +36,23 @@ def latest_month():
     sys.exit("no BTS month found in the last 8 months")
 
 
-def download(url, path):
-    with S.get(url, stream=True, timeout=600) as r:
-        r.raise_for_status()
-        with open(path, "wb") as f:
-            for chunk in r.iter_content(1 << 20):
-                f.write(chunk)
+def download(url, path, tries=5):
+    # Write to .part and rename when complete, so a dropped connection never leaves a truncated file
+    # that later runs would skip as already downloaded. BTS resets connections mid-file now and then.
+    part = path.with_name(path.name + ".part")
+    for attempt in range(tries):
+        try:
+            with S.get(url, stream=True, timeout=600) as r:
+                r.raise_for_status()
+                with open(part, "wb") as f:
+                    for chunk in r.iter_content(1 << 20):
+                        f.write(chunk)
+            part.replace(path)
+            return
+        except (requests.ConnectionError, requests.Timeout, requests.exceptions.ChunkedEncodingError):
+            if attempt == tries - 1:
+                raise
+            time.sleep(30)
 
 
 y, m = latest_month()
