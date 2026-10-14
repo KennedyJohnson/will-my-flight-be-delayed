@@ -118,3 +118,34 @@ footer { margin-top: 64px; border-top: 1px solid var(--border); padding-top: 16p
 .route-check.faa small { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
 
 .route-check[hidden], .hint[hidden] { display: none; }
+
+/* Field Documents theme: airport departures board (split-flap). */
+:root {
+  --bg: #0c0c0b; --card: #151513; --border: #2b2a24; --grid: #22211c;
+  --ink: #f7f2e0; --ink2: #c9c3ad; --muted: #8d8770;
+  --accent: #f5c400; --accent-soft: #2a2408; --on-accent: #111; --warm: #f08a24;
+  --flap: #1d1d1a; --mono: "Chivo Mono", ui-monospace, monospace;
+}
+body { font-family: "IBM Plex Sans", system-ui, sans-serif; }
+h1 { font-family: var(--mono); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--accent); }
+h2, h3 { font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+h3 { font-size: 13px; color: var(--ink2); }
+.eyebrow { font-family: var(--mono); letter-spacing: .22em; color: var(--muted); }
+.card, .search input, .search select, .match, .route-check, .stat, .wx, #map, .shap { border-radius: 2px; }
+.btn, .btn.primary, .modes .btn, .examples .btn { border-radius: 2px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+#flight { font-family: var(--mono); letter-spacing: .12em; }
+/* Flap tiles: a dark plate split by a hairline, like a Solari board character. */
+.route .code, .big-pct {
+  display: inline-block; font-family: var(--mono); color: var(--ink); padding: 6px 10px 4px;
+  background: linear-gradient(#000 0 0) 0 50% / 100% 1px no-repeat, linear-gradient(var(--flap) 50%, #181815 50%);
+  border-radius: 3px; box-shadow: inset 0 -2px 0 #000;
+}
+.big-pct { color: var(--accent); letter-spacing: .04em; }
+.route .path { border-top-color: var(--accent); border-top-style: dotted; }
+.meter, .meter i { border-radius: 0; }
+th { font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+footer { font-family: "IBM Plex Sans", system-ui, sans-serif; }
+.byline { font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em; color: var(--accent); }
+.leaflet-container { font-family: "IBM Plex Sans", sans-serif; }
+.ap-label { font-family: var(--mono); border-radius: 2px; }
