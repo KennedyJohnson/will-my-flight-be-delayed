@@ -54,8 +54,16 @@ for code, row in ap.iterrows():
         if r is None:
             raise RuntimeError(f"Open-Meteo unreachable for {code} after {fails} retries")
         r.raise_for_status()
+        try:
+            hourly = r.json()["hourly"]
+        except (ValueError, KeyError):  # 200 with an empty or truncated body
+            if fails < 5:
+                fails += 1
+                time.sleep(60)
+                continue
+            raise
         break
-    h = pd.DataFrame(r.json()["hourly"])
+    h = pd.DataFrame(hourly)
     h["time"] = pd.to_datetime(h["time"])
     h.to_parquet(path, index=False)
     print(code, len(h), flush=True)
