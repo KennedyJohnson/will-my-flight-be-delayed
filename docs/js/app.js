@@ -863,6 +863,8 @@ function renderAbout() {
       card.months.slice(-12).reverse().map((m) => `<tr><td>${m.month}</td><td>${m.n.toLocaleString()} (${pct(m.coverage)})</td><td>${f(m.auc)}</td>` +
         `<td>${f(m.validation_auc)}</td><td>${f(m.baseline_flight_rate_auc)}</td><td>${pct(m.mean_pred)} / ${pct(m.actual_rate)}</td></tr>`).join("");
     $("scorecard").hidden = false;
+  }).catch(() => {
+    // scorecard.json is optional: it is absent until the scorecard step has run at least once
   });
   // BTS data lags ~2-3 months; past ~5 months the monthly retrain has likely stopped.
   const ageDays = (Date.now() - new Date(metrics.schedule_through)) / 86400000;
