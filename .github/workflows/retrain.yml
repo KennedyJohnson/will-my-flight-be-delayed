@@ -39,6 +39,7 @@ jobs:
           latest=$(python pipeline/00_download.py --check)
           current=$(python -c "import json;print(json.load(open('docs/data/metrics.json'))['train_period'][1][:7])")
           echo "latest=$latest current=$current"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
           if [ "$latest" != "$current" ] || [ "${{ inputs.force }}" = "true" ]; then echo "run=true" >> "$GITHUB_OUTPUT"; fi
 
       - name: Cache FAA registry (fallback when registry.faa.gov is down)
@@ -49,6 +50,18 @@ jobs:
           key: faa-${{ github.run_id }}
           restore-keys: faa-
 
+      # The 24-month weather download is rate-limited by Open-Meteo and has run past the job
+      # timeout, losing all progress. Keep finished airports across runs (per BTS month, because
+      # the date window is fixed by it) so a retry resumes instead of starting over.
+      - name: Restore weather cache
+        id: wxcache
+        if: steps.check.outputs.run == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: raw/weather_fc
+          key: wxfc-${{ steps.check.outputs.latest }}-${{ github.run_id }}
+          restore-keys: wxfc-${{ steps.check.outputs.latest }}-
+
       - name: Download data
         if: steps.check.outputs.run == 'true'
         run: python pipeline/00_download.py
@@ -58,6 +71,12 @@ jobs:
       - name: Fetch weather
         if: steps.check.outputs.run == 'true'
         run: python pipeline/02_weather.py --forecast
+      - name: Save weather cache
+        if: always() && steps.check.outputs.run == 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: raw/weather_fc
+          key: wxfc-${{ steps.check.outputs.latest }}-${{ github.run_id }}
       # Before retraining overwrites docs/data: score the model the site has been serving on the
       # newly released month(s), which it never saw. Doesn't block the retrain if it fails.
       - name: Live scorecard for the published model
@@ -111,7 +130,8 @@ jobs:
 
   alert-on-failure:
     needs: retrain
-    if: failure()
+    # A job timeout ends as "cancelled", which failure() alone does not match.
+    if: failure() || cancelled()
     runs-on: ubuntu-latest
     permissions:
       issues: write
