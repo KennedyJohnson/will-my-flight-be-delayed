@@ -1,5 +1,8 @@
 import { DelayModel } from "./model.js";
 
+// Escape text from live feeds before it goes into HTML
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
 const WX_VARS = ["temperature_2m", "precipitation", "snowfall", "wind_speed_10m",
   "wind_gusts_10m", "cloud_cover", "cloud_cover_low", "weather_code", "visibility"];
 // Regional carriers that fly under a mainline brand's flight numbers
@@ -629,9 +632,9 @@ async function showFaa(leg, date) {
     if (!j.delays?.length) return;
     const name = (c) => airports[c]?.city ?? c;
     const lines = j.delays.map((d) => {
-      const where = `${name(d.airport)} (${d.airport})`;
+      const where = `${esc(name(d.airport))} (${esc(d.airport)})`;
       const trend = d.trend === "increasing" ? ", and getting longer" : d.trend === "decreasing" ? ", but easing" : "";
-      return `<b>${where}:</b> ${d.text}${trend}${d.reason ? ` (${d.reason})` : ""}.`;
+      return `<b>${where}:</b> ${esc(d.text)}${trend}${d.reason ? ` (${esc(d.reason)})` : ""}.`;
     });
     $("faa-text").innerHTML = `<b>FAA airport status right now</b><br>${lines.join("<br>")}<small>From the FAA's live airport status feed. This is today's situation at the airport and is not part of the model's estimate below.</small>`;
     box.hidden = false;
@@ -693,7 +696,7 @@ async function pollLive() {
   if (ctx !== liveCtx) return;
   if (ctx.reg && !livePlane) {
     try {
-      const j = await (await fetch(`${POS_URL}${POS_URL.includes("?") ? "&" : "?"}reg=${ctx.reg}`)).json();
+      const j = await (await fetch(`${POS_URL}${POS_URL.includes("?") ? "&" : "?"}reg=${encodeURIComponent(ctx.reg)}`)).json();
       if (ctx !== liveCtx) return;
       if (j.found) { liveMisses = 0; return drawLive(j, [j.lat, j.lon], true); }
     } catch { /* feed unavailable */ }
@@ -730,7 +733,7 @@ function drawLive(j, here, inbound = false) {
   routePts.forEach((p, i) => { const d = kmBetween(here, p); if (d < best) { best = d; k = i; } });
   const html = `<div style="color:${warm};line-height:0;transform:rotate(${j.track ?? bearing(routePts[k], routePts[Math.min(k + 1, routePts.length - 1)])}deg)">${PLANE_SVG.replace("26", "32").replace("26", "32")}</div>`;
   const icon = L.divIcon({ className: "live-plane", html, iconSize: [32, 32], iconAnchor: [16, 16] });
-  const tip = `${inbound ? "Your plane " + (j.reg ?? "") + " · " : ""}${j.callsign ?? ""} · ${j.alt_ft === 0 ? "on the ground" : j.alt_ft != null ? j.alt_ft.toLocaleString() + " ft" : ""}${j.speed_kt ? " · " + Math.round(j.speed_kt * 1.15078) + " mph" : ""}`;
+  const tip = `${inbound ? "Your plane " + esc(j.reg) + " · " : ""}${esc(j.callsign)} · ${j.alt_ft === 0 ? "on the ground" : j.alt_ft != null ? j.alt_ft.toLocaleString() + " ft" : ""}${j.speed_kt ? " · " + Math.round(j.speed_kt * 1.15078) + " mph" : ""}`;
   if (livePlane) { livePlane.setLatLng(here); livePlane.setIcon(icon); livePlane.setTooltipContent(tip); }
   else livePlane = L.marker(here, { icon, zIndexOffset: 1000 }).bindTooltip(tip, { direction: "top", offset: [0, -14] }).addTo(map);
   liveTrail?.remove(); liveTrail = null;
