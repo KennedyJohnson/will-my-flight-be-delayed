@@ -67,6 +67,11 @@ let model, stats, airports, carriers, metrics, map, mapLayers = [];
 // schedule API. Empty = off: lookups use only the BTS schedules, which lag ~2 months.
 const LIVE_URL = "https://will-my-flight-be-delayed.ken-j.workers.dev/";
 let setMode;
+// Each lookup (flight search, route search, picking a match or leg, switching search mode) starts a
+// new view. Async work from an older view checks its isCurrent() and drops its result rather than
+// drawing over the newer one (e.g. slow weather for the flight you picked first).
+let viewSeq = 0;
+const newView = () => { const id = ++viewSeq; return () => id === viewSeq; };
 
 async function init() {
   const today = new Date();
@@ -82,6 +87,7 @@ async function init() {
   };
   $("route-date").value = $("date").value;
   setMode = (route) => {
+    newView();
     $("mode-num").classList.toggle("active", !route);
     $("mode-route").classList.toggle("active", route);
     $("search").hidden = route; $("route-search").hidden = !route; $("examples").hidden = route;
@@ -160,13 +166,16 @@ async function run() {
   if (!parsed) return showError("Enter a flight like “DL 1234” (2-character airline code + number).");
   const date = $("date").value;
   const btn = $("search").querySelector("button");
+  const isCurrent = newView();
   btn.disabled = true; btn.textContent = "Checking…";
   $("result").hidden = true;
   try {
     const [found, live] = await Promise.all([findLegs(parsed), lookupLive(parsed, date)]);
+    if (!isCurrent()) return;
     if (live?.length) {
       history.replaceState(null, "", `?flight=${parsed.carrier}${parsed.num}&date=${date}`);
       const merged = await Promise.all(live.map((l) => mergeLiveLeg(parsed, found, l)));
+      if (!isCurrent()) return;
       const legs = merged.map((m) => m.leg);
       renderLegTabs(parsed, { operator: merged[0].operator }, legs, legs, date);
       renderLiveCheck(parsed, merged[0], date);
@@ -183,7 +192,7 @@ async function run() {
     await showLeg(parsed, found.operator, flying[0] ?? legs[0], date, !flying.length);
   } catch (err) {
     console.error(err);
-    showError("Something went wrong loading data. Please try again.");
+    if (isCurrent()) showError("Something went wrong loading data. Please try again.");
   } finally {
     btn.disabled = false; btn.textContent = "Check";
   }
@@ -213,6 +222,7 @@ async function runRoute() {
   const dow = (parseDate(date).getDay() + 6) % 7;
   const codes = brand ? [brand, ...(PARTNERS[brand] ?? [])] : Object.keys(carriers);
   const found = [];
+  const isCurrent = newView();
   await Promise.all(codes.map(async (c) => {
     const table = await getJSON(`data/flights/${c}.json`);
     for (const [num, legs] of Object.entries(table ?? {})) {
@@ -224,6 +234,7 @@ async function runRoute() {
       }
     }
   }));
+  if (!isCurrent()) return;
   found.sort((a, b) => a.leg.dep - b.leg.dep);
   const box = $("matches");
   box.hidden = false;
@@ -378,9 +389,11 @@ async function showLeg(parsed, operator, leg, date, notOnDate) {
   const depHour = Math.min(23, Math.floor(leg.dep / 100));
   const arrHour = Math.min(23, Math.floor(leg.arr / 100));
   const arrDate = leg.arr < leg.dep ? addDays(date, 1) : date;
+  const isCurrent = newView();
   const [oHourly, dHourly] = await Promise.all([fetchWeather(leg.o, date), fetchWeather(leg.d, arrDate)]);
   const oWx = wxAt(oHourly, depHour), dWx = wxAt(dHourly, arrHour);
   await loadModel(); // throws if it can't load, so the caller shows an error instead of waiting forever
+  if (!isCurrent()) return; // another flight, leg or search was picked while this one loaded
 
   const d = parseDate(date);
   const prior = stats.prior;
