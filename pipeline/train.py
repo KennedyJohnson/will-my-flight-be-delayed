@@ -49,8 +49,19 @@ tr = F.oof_te(tr, prior)
 va = F.apply_te(va, F.te_stats(tr, prior), prior)
 
 
+# Delay levels drift (the 12 months to Aug 2026 ran ~2.5 points above the year before), and an equally
+# weighted 24-month window anchors predictions to the older, lower level. Weight each flight by recency:
+# half weight per HALF_LIFE_DAYS of age, measured from the end of the data being fit.
+HALF_LIFE_DAYS = 365
+
+
+def recency_weight(dates: pd.Series) -> np.ndarray:
+    age = (dates.max() - dates).dt.days.to_numpy()
+    return 0.5 ** (age / HALF_LIFE_DAYS)
+
+
 def fit(feats, rounds=3000):
-    dtr = lgb.Dataset(blank_weather(tr[feats].copy()), tr["delayed"])
+    dtr = lgb.Dataset(blank_weather(tr[feats].copy()), tr["delayed"], weight=recency_weight(tr["date"]))
     dva = lgb.Dataset(va[feats], va["delayed"], reference=dtr)
     return lgb.train(PARAMS, dtr, rounds, valid_sets=[dva],
                      callbacks=[lgb.early_stopping(100), lgb.log_evaluation(200)])
@@ -109,7 +120,7 @@ results["bias_by_month"] = bias.round(4).reset_index().to_dict("records")
 best_iter = model_sel.best_iteration
 prior_all = df["delayed"].mean()
 df = F.oof_te(df, prior_all)
-dall = lgb.Dataset(blank_weather(df[selected].copy()), df["delayed"])
+dall = lgb.Dataset(blank_weather(df[selected].copy()), df["delayed"], weight=recency_weight(df["date"]))
 final = lgb.train(PARAMS, dall, int(best_iter * 1.1))
 final.save_model(str(RAW / "model.txt"))
 
