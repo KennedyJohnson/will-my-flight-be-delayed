@@ -100,6 +100,10 @@ p = model_sel.predict(va[selected])
 bins = pd.cut(p, np.linspace(0, 1, 11))
 calib = pd.DataFrame({"p": p, "y": y}).groupby(bins, observed=True).agg(pred=("p", "mean"), actual=("y", "mean"), n=("y", "size"))
 results["calibration"] = calib.round(4).reset_index(drop=True).to_dict("records")
+# Overall bias per validation month: mean predicted vs actual delay rate
+bias = pd.DataFrame({"p": p, "y": y, "m": va["date"].dt.strftime("%Y-%m").values}).groupby("m").agg(
+    mean_pred=("p", "mean"), actual_rate=("y", "mean"), n=("y", "size"))
+results["bias_by_month"] = bias.round(4).reset_index().to_dict("records")
 
 # ---- Final model on all 24 months ----
 best_iter = model_sel.best_iteration

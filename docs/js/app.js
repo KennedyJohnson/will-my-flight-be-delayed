@@ -44,10 +44,23 @@ const WMO = {
   99: ["Thunderstorm + hail", "⛈️"],
 };
 const REGIONAL = new Set(["MQ", "OH", "OO", "YX", "9E", "QX", "ZW", "C5", "G7", "PT", "EV", "YV", "CP"]);
-// Keep in sync with HOLIDAYS in pipeline/features.py
-const HOLIDAYS = ["2025-05-26", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25", "2026-01-01", "2026-04-05",
-  "2026-05-25", "2026-07-04", "2026-09-07", "2026-11-26", "2026-12-25", "2027-01-01", "2027-03-28",
-  "2027-05-31", "2027-07-04", "2027-09-06", "2027-11-25", "2027-12-25"];
+// Same rules as holidays_for() in pipeline/features.py: New Year, Easter, Memorial Day, July 4,
+// Labor Day, Thanksgiving, Christmas, for the travel year and its neighbours.
+function easter(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
+  const g = Math.floor((8 * b + 13) / 25), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 19 * l) / 433), month = Math.floor((h + l - 7 * m + 90) / 25);
+  return new Date(y, month - 1, (h + l - 7 * m + 33 * month + 19) % 32);
+}
+function nthWeekday(y, month, weekday, n) { // weekday 0 = Monday; n = -1 for the last one
+  if (n > 0) { const first = new Date(y, month - 1, 1); return new Date(y, month - 1, 1 + ((weekday - (first.getDay() + 6) % 7 + 7) % 7) + 7 * (n - 1)); }
+  const last = new Date(y, month, 0); return new Date(y, month - 1, last.getDate() - (((last.getDay() + 6) % 7 - weekday + 7) % 7));
+}
+function holidaysFor(y) {
+  return [y - 1, y, y + 1].flatMap((yr) => [new Date(yr, 0, 1), easter(yr), nthWeekday(yr, 5, 0, -1), new Date(yr, 6, 4),
+    nthWeekday(yr, 9, 0, 1), nthWeekday(yr, 11, 3, 4), new Date(yr, 11, 25)]);
+}
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const $ = (id) => document.getElementById(id);
@@ -423,7 +436,7 @@ async function showLeg(parsed, operator, leg, date, notOnDate) {
     inbound_rate: stats.inbound_rate[leg.inb] ?? prior,
     turnaround: leg.turn, aircraft_age: leg.age, seats: leg.seats,
     regional: REGIONAL.has(operator) ? 1 : 0,
-    days_to_holiday: Math.min(...HOLIDAYS.map((h) => Math.abs(Math.round((parseDate(h) - d) / 864e5)))),
+    days_to_holiday: Math.min(...holidaysFor(d.getFullYear()).map((h) => Math.abs(Math.round((h - d) / 864e5)))),
   };
   for (const [side, wx] of [["o", oWx], ["d", dWx]]) {
     for (const k of [...WX_VARS, "precipitation_day", "snowfall_day"]) row[`${side}_${k}`] = wx ? wx[k] : null;
