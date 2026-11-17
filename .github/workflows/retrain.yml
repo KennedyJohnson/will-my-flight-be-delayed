@@ -130,8 +130,9 @@ jobs:
 
   alert-on-failure:
     needs: retrain
-    # A job timeout ends as "cancelled", which failure() alone does not match.
-    if: failure() || cancelled()
+    # A job timeout ends as "cancelled". In a dependent job, cancelled() only reflects a
+    # cancelled workflow and failure() ignores a cancelled need, so check the result directly.
+    if: always() && (needs.retrain.result == 'failure' || needs.retrain.result == 'cancelled')
     runs-on: ubuntu-latest
     permissions:
       issues: write
