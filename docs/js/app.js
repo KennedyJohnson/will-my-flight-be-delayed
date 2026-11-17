@@ -188,7 +188,11 @@ async function run() {
     const legs = found.legs;
     const flying = legs.filter((l) => l.dows & (1 << dow));
     renderLegTabs(parsed, found, legs, flying, date);
-    renderRouteCheck(parsed, legs, flying);
+    // The live lookup answered (not null) but listed nothing on this date: the flight likely
+    // doesn't operate then (seasonal or cancelled route), so say so instead of implying it does.
+    const days = (parseDate(date) - Date.now()) / 864e5;
+    const notListed = Array.isArray(live) && live.length === 0 && days > -7 && days < 330;
+    renderRouteCheck(parsed, legs, flying, notListed);
     await showLeg(parsed, found.operator, flying[0] ?? legs[0], date, !flying.length);
   } catch (err) {
     console.error(err);
@@ -326,7 +330,7 @@ function renderLiveCheck(parsed, m, date) {
   $("route-check").hidden = false;
 }
 
-function renderRouteCheck(parsed, legs, flying) {
+function renderRouteCheck(parsed, legs, flying, notListed = false) {
   const shown = flying.length ? flying : legs;
   const routes = [...new Set(shown.map((l) => `${l.o} → ${l.d}`))];
   const through = metrics?.schedule_through
@@ -335,6 +339,11 @@ function renderRouteCheck(parsed, legs, flying) {
   const list = routes.length > 2 ? `${routes.slice(0, 2).join(", ")} and ${routes.length - 2} more` : routes.join(" and ");
   const text = $("route-check-text");
   text.textContent = "";
+  if (notListed) {
+    const w = document.createElement("b");
+    w.textContent = `Current airline schedules don't list ${parsed.carrier} ${parsed.num} on this date, so it may not fly that day. `;
+    text.append(w);
+  }
   text.append(`${through ? `In schedules through ${through}, ` : "In recent schedules, "}${parsed.carrier} ${parsed.num} flew `);
   const b = document.createElement("b"); b.textContent = list; text.append(b);
   text.append(". Airlines reuse flight numbers, so if your ticket shows a different route, search by route instead.");

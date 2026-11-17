@@ -52,7 +52,8 @@ jobs:
 
       # The 24-month weather download is rate-limited by Open-Meteo and has run past the job
       # timeout, losing all progress. Keep finished airports across runs (per BTS month, because
-      # the date window is fixed by it) so a retry resumes instead of starting over.
+      # the date window is fixed by it) so a retry resumes instead of starting over. When a new
+      # month appears, the previous month's cache is restored and extended instead.
       - name: Restore weather cache
         id: wxcache
         if: steps.check.outputs.run == 'true'
@@ -60,7 +61,10 @@ jobs:
         with:
           path: raw/weather_fc
           key: wxfc-${{ steps.check.outputs.latest }}-${{ github.run_id }}
-          restore-keys: wxfc-${{ steps.check.outputs.latest }}-
+          # Fall back to the previous month's cache: 02_weather.py only fetches the new days.
+          restore-keys: |
+            wxfc-${{ steps.check.outputs.latest }}-
+            wxfc-
 
       - name: Download data
         if: steps.check.outputs.run == 'true'

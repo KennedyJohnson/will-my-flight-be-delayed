@@ -4,9 +4,12 @@ Default: observed weather from the archive API (raw/weather/). With --forecast: 
 Forecast API, i.e. the forecast Open-Meteo issued for each day, which matches what the live site
 (docs/js/app.js, api.open-meteo.com/v1/forecast) shows users (raw/weather_fc/). Train on the
 forecast version so model inputs have the same error profile as serving inputs.
+
+Cached files from an earlier date window are extended rather than re-downloaded.
 """
 import sys
 import time
+from datetime import timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -33,9 +36,23 @@ print(len(codes), "airports;", len(codes - set(ap.index)), "missing coords")
 
 for code, row in ap.iterrows():
     path = OUT / f"{code}.parquet"
+    # A file left by an earlier window (the workflow restores the previous month's cache) only
+    # needs the days after it ends: fetch that tail and trim days before the new window, instead
+    # of re-downloading all 24 months. Files that don't reach back to `start` are refetched whole.
+    old, fetch_from = None, start
     if path.exists():
-        continue
-    params = dict(latitude=row.latitude_deg, longitude=row.longitude_deg, start_date=start, end_date=end,
+        old = pd.read_parquet(path)
+        have_from, have_to = old["time"].min().date(), old["time"].max().date()
+        if have_from <= start and have_to >= end:
+            if have_from < start:
+                old[old["time"].dt.date >= start].to_parquet(path, index=False)
+            continue
+        if have_from <= start and have_to >= start:
+            fetch_from = have_to + timedelta(days=1)
+            old = old[(old["time"].dt.date >= start) & (old["time"].dt.date < fetch_from)]
+        else:
+            old = None
+    params = dict(latitude=row.latitude_deg, longitude=row.longitude_deg, start_date=fetch_from, end_date=end,
                   hourly=",".join(WX_VARS), timezone="auto", wind_speed_unit="mph",
                   temperature_unit="fahrenheit", precipitation_unit="inch")
     fails = 0
@@ -65,6 +82,8 @@ for code, row in ap.iterrows():
         break
     h = pd.DataFrame(hourly)
     h["time"] = pd.to_datetime(h["time"])
+    if old is not None:
+        h = pd.concat([old, h], ignore_index=True)
     h.to_parquet(path, index=False)
-    print(code, len(h), flush=True)
+    print(code, len(h), "(from", fetch_from, ")", flush=True)
     time.sleep(2)
